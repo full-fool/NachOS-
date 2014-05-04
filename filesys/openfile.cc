@@ -154,8 +154,17 @@ OpenFile::WriteAt(char *from, int numBytes, int position)
 
     if ((numBytes <= 0) || (position >= fileLength))
 	return 0;				// check request
-    if ((position + numBytes) > fileLength)
-	numBytes = fileLength - position;
+    if ((position + numBytes) > fileLength)             //have to enlarge the file
+    {        
+        hdr->ChangeFileLength(position + numBytes);
+        int neededBytes = position + numBytes - fileLength;
+        BitMap *freeMap = new BitMap(NumSectors);
+        OpenFile *freeMapFile = new OpenFile(0);                    //open freemap file
+        freeMap->FetchFrom(freeMapFile);
+        hdr->EnlargeFile(freeMap, neededBytes);
+        //hdr->WriteBack()   
+
+    }
     DEBUG('f', "Writing %d bytes at %d, from file of length %d.\n", 	
 			numBytes, position, fileLength);
 

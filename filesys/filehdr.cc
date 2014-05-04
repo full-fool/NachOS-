@@ -204,3 +204,63 @@ FileHeader::Print()
     }
     delete [] data;
 }
+
+//----------------------------------------------------------------------
+// FileHeader::EnlargeFile
+//  Enlarge the file with bytesNeeded more bytes.
+//----------------------------------------------------------------------
+
+bool 
+FileHeader::EnlargeFile(BitMap *freeMap, int bytesNeeded)
+{
+    int newSectors = divRoundUp(bytesNeeded, SectorSize);
+    if(freeMap->NumClear() < newSectors)
+        return FALSE;
+    if(newSectors + numSectors >29+32)
+        return FALSE;
+    if(newSectors + numSectors > 29)            //need to allocate new space in 2-level index
+    {
+        if(numSectors >29)                  //already uses a 2-level index
+        {
+            ASSERT(dataSectors[29] != -1);
+            int *secondIndex;
+            char *temp = new char[SectorSize];
+            synchDisk->ReadSector(dataSectors[29], temp);
+            secondIndex = (int *)temp;
+            for(int i=numSectors-29; i<newSectors+numSectors-29; i++)          //clear 2-level index first
+            {
+                secondIndex[i] = freeMap->Find();
+            }
+        }
+        else
+        {
+            ASSERT(dataSectors[29] == -1);
+            for(int i=numSectors; i<30; i++)
+            {
+                dataSectors[i] = freeMap->Find();
+            }
+            int secondSector = dataSectors[29];
+            int secondNeedSec = numSectors + newSectors - 29;
+            int *secondIndex = new int[secondNeedSec];
+            for(int i=0; i<secondNeedSec; i++)
+            {
+                secondIndex[i] = freeMap->Find();
+            }
+            synchDisk->WriteSector(secondSector, (char *)secondIndex); 
+        }
+        return TRUE;
+    }
+    else                                    //no need to use 2-level index
+    {
+        ASSERT(dataSectors[29] == -1);
+        for(int i=numSectors; i<numSectors+newSectors; i++)
+        {
+            dataSectors[i] = freeMap->Find();
+        }
+        return TRUE;
+    }
+    return FALSE;
+
+
+}
+
