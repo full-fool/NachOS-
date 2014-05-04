@@ -127,10 +127,11 @@ Directory::Find(char *name)
 //----------------------------------------------------------------------
 
 bool
-Directory::Add(char *name, int newSector)
+Directory::Add(char *name, int newSector, char type, char *targetPath)
 { 
-    if (FindIndex(name) != -1)
-	return FALSE;
+    
+    //if (FindIndex(name) != -1)
+	//  return FALSE;
 
     for (int i = 0; i < tableSize; i++)
         if (!table[i].inUse) {

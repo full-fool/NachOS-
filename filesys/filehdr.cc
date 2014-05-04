@@ -44,10 +44,30 @@ FileHeader::Allocate(BitMap *freeMap, int fileSize)
     numBytes = fileSize;
     numSectors  = divRoundUp(fileSize, SectorSize);
     if (freeMap->NumClear() < numSectors)
-	return FALSE;		// not enough space
+	   return FALSE;		// not enough space
+    if(numSectors > 29+32) // exceed the max file limitation
+        return FALSE;
+    if(numSectors <= 29)
+    {
+        for (int i = 0; i < numSectors; i++)
+            dataSectors[i] = freeMap->Find();
+        dataSectors[29] = -1;
+    }
+    else
+    {
+        for (int i = 0; i < 30; i++)
+            dataSectors[i] = freeMap->Find();
+        int secondSector = dataSectors[29];
+        int secondNeedSec = numSectors - 29;
+        int *secondIndex = new int[secondNeedSec];
+        for(int i=0; i<secondNeedSec; i++)
+        {
+            secondIndex[i] = freeMap->Find();
+        }
+        synchDisk->WriteSector(secondSector, (char *)secondIndex); 
+    }
 
-    for (int i = 0; i < numSectors; i++)
-	dataSectors[i] = freeMap->Find();
+    
     return TRUE;
 }
 
@@ -61,10 +81,33 @@ FileHeader::Allocate(BitMap *freeMap, int fileSize)
 void 
 FileHeader::Deallocate(BitMap *freeMap)
 {
-    for (int i = 0; i < numSectors; i++) {
-	ASSERT(freeMap->Test((int) dataSectors[i]));  // ought to be marked!
-	freeMap->Clear((int) dataSectors[i]);
+    if(dataSectors[29] == -1)       //2-level index not used
+    {
+       for (int i = 0; i < numSectors; i++) 
+       {
+            ASSERT(freeMap->Test((int) dataSectors[i]));  // ought to be marked!
+            freeMap->Clear((int) dataSectors[i]);
+        } 
     }
+    else                                            //2-level index used
+    {
+        int *secondIndex;
+        char *temp = new char[SectorSize];
+        synchDisk->ReadSector(dataSectors[29], temp);
+        secondIndex = (int *)temp;
+        for(int i=0; i<numSectors-29; i++)          //clear 2-level index first
+        {
+            ASSERT(freeMap->Test((int) secondIndex[i]));
+            freeMap->Clear((int) secondIndex[i]);
+        }
+        for(int i=0; i<30; i++)                     //then clear 1-level index
+        {
+            ASSERT(freeMap->Test((int) dataSectors[i]));
+            freeMap->Clear((int) dataSectors[i]);
+        }
+
+    }
+    
 }
 
 //----------------------------------------------------------------------
@@ -106,7 +149,20 @@ FileHeader::WriteBack(int sector)
 int
 FileHeader::ByteToSector(int offset)
 {
-    return(dataSectors[offset / SectorSize]);
+    int firstSector = offset / SectorSize;
+    if(firstSector < 29)                //2-level index not used
+        return(dataSectors[offset / SectorSize]);
+    else
+    {
+        ASSERT(dataSectors[29] != -1);
+        int *secondIndex;
+        char *temp = new char[SectorSize];
+        synchDisk->ReadSector(dataSectors[29], temp);
+        secondIndex = (int *)temp;
+        return(secondIndex[firstSector - 29]);
+    }
+
+    //return(dataSectors[offset / SectorSize]);
 }
 
 //----------------------------------------------------------------------

@@ -19,6 +19,7 @@
 
 #define NumDirect 	((SectorSize - 2 * sizeof(int)) / sizeof(int))
 #define MaxFileSize 	(NumDirect * SectorSize)
+//the max sector number a file can contain besides hdr
 
 
 // The following class defines the Nachos "file header" (in UNIX terms,  
