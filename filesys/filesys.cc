@@ -172,7 +172,7 @@ FileSystem::FileSystem(bool format)
 //----------------------------------------------------------------------
 
 bool
-FileSystem::Create(char *name, int initialSize)
+FileSystem::Create(char *name, int initialSize, char type)
 {
     Directory *directory;
     BitMap *freeMap;
@@ -187,28 +187,33 @@ FileSystem::Create(char *name, int initialSize)
 
     if (directory->Find(name) != -1)
       success = FALSE;			// file is already in directory
-    else {	
+    else 
+    {	
         freeMap = new BitMap(NumSectors);
         freeMap->FetchFrom(freeMapFile);
         sector = freeMap->Find();	// find a sector to hold the file header
     	if (sector == -1) 		
-            success = FALSE;		// no free block for file header 
-        else if (!directory->Add(name, sector))
+            success = FALSE;		// no free block for file header
+        else if(type == 'f' && !directory->Add(name, sector, 'f', directory->getCurrentPath())) 
             success = FALSE;	// no space in directory
-	else {
-    	    hdr = new FileHeader;
-	    if (!hdr->Allocate(freeMap, initialSize))
+        else if(type == 'd' && !directory->Add(name, sector, 'd', directory->getCurrentPath()))
+            success = FALSE;
+        else 
+        {
+    	   hdr = new FileHeader;
+	       if (!hdr->Allocate(freeMap, initialSize))
             	success = FALSE;	// no space on disk for data
-	    else {	
-	    	success = TRUE;
+	       else 
+           {	
+                success = TRUE;
 		// everthing worked, flush all changes back to disk
     	    	hdr->WriteBack(sector); 		
     	    	directory->WriteBack(directoryFile);
     	    	freeMap->WriteBack(freeMapFile);
-	    }
+	       }
             delete hdr;
-	}
-        delete freeMap;
+        }
+            delete freeMap;
     }
     delete directory;
     return success;
@@ -277,7 +282,7 @@ FileSystem::Remove(char *name)
 
     fileHdr->Deallocate(freeMap);  		// remove data blocks
     freeMap->Clear(sector);			// remove header block
-    directory->Remove(name);
+    directory->Remove(directory->getCurrentPath(), name);
 
     freeMap->WriteBack(freeMapFile);		// flush to disk
     directory->WriteBack(directoryFile);        // flush to disk

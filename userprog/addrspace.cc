@@ -92,7 +92,7 @@ AddrSpace::AddrSpace(OpenFile *executable)
         lessPageNum = clearMem;
         char tempBuffer[size + 10];
         char *fileName = currentThread->getName();
-        fileSystem->Create(fileName, 0);
+        fileSystem->Create(fileName, 0, 'f');
         swapFile = fileSystem->Open(fileName);
         if(swapFile == NULL)
         {

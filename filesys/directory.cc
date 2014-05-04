@@ -39,6 +39,7 @@ Directory::Directory(int size)
 {
     table = new DirectoryEntry[size];
     tableSize = size;
+    currentPath = "/";
     for (int i = 0; i < tableSize; i++)
 	table[i].inUse = FALSE;
 }
@@ -94,6 +95,13 @@ Directory::FindIndex(char *name)
         if (table[i].inUse && !strncmp(table[i].name, name, FileNameMaxLen))
 	    return i;
     return -1;		// name not in directory
+    // for(int i=0; i<tableSize; i++)
+    // {
+    //     if(table[i].inUse && strcmp(table[i].path, targetPath) && 
+    //         strcmp(table[i].name, name))
+    //     return i;
+    // }
+    // return -1;
 }
 
 //----------------------------------------------------------------------
@@ -130,14 +138,20 @@ bool
 Directory::Add(char *name, int newSector, char type, char *targetPath)
 { 
     
-    //if (FindIndex(name) != -1)
-	//  return FALSE;
+    for(int i=0; i<tableSize; i++)
+    {
+        if(table[i].inUse && !strcmp(table[i].path, targetPath) && 
+             !strcmp(table[i].name, name))
+            return FALSE;
+    }
 
     for (int i = 0; i < tableSize; i++)
         if (!table[i].inUse) {
             table[i].inUse = TRUE;
             //strncpy(table[i].name, name, FileNameMaxLen); 
             table[i].name = name;
+            table[i].path = targetPath;
+            table[i].type = type;
             table[i].sector = newSector;
         return TRUE;
 	}
@@ -153,14 +167,46 @@ Directory::Add(char *name, int newSector, char type, char *targetPath)
 //----------------------------------------------------------------------
 
 bool
-Directory::Remove(char *name)
+Directory::Remove(char *targetPath, char *name)
 { 
-    int i = FindIndex(name);
+    // int index = FindIndex(targetPath, name);
+    // if (index == -1)
+    //     return FALSE;       // name not in directory
+    int index = -1;
+    for(int i=0; i<tableSize; i++)
+    {
+        if(table[i].inUse && !strcmp(table[i].path, targetPath) && 
+             !strcmp(table[i].name, name))
+        {
+            index = i;
+            break;
+        }
+    }
+    if(index == -1)
+        return FALSE;
+    if(table[index].type == 'f')            //delete a file
+    {
+        table[index].inUse = FALSE;
+        return TRUE; 
+    }
+    else                                    //delete a directory
+    {
+        char *fullPath = new char[100];
+        strcat(fullPath, targetPath);
+        strcat(fullPath, "/");
+        strcat(fullPath, name);
+        table[index].inUse = FALSE;
+        for(int i=0; i<tableSize; i++)
+        {
+            if(table[i].inUse && !strcmp(table[i].path, fullPath))
+            {
+                Remove(fullPath, table[i].name);
+            }
+        }
+    }
+    
 
-    if (i == -1)
-	return FALSE; 		// name not in directory
-    table[i].inUse = FALSE;
-    return TRUE;	
+    
 }
 
 //----------------------------------------------------------------------

@@ -41,7 +41,7 @@ class DirectoryEntry {
     char createTime[20];
     char lastVisited[20];
     char lastModified[20];
-    char path[100];
+    char *path;
 
 };
 
@@ -70,18 +70,19 @@ class Directory {
 
     bool Add(char *name, int newSector, char type, char *targetPath);  // Add a file name into the directory
 
-    bool Remove(char *name);		// Remove a file from the directory
+    bool Remove(char *targetPath, char *name);		// Remove a file from the directory
 
     void List();			// Print the names of all the files
 					//  in the directory
     void Print();			// Verbose print of the contents
 					//  of the directory -- all the file
 					//  names and their contents.
-
+    char *getCurrentPath(){return currentPath;}
   private:
     int tableSize;			// Number of directory entries
     DirectoryEntry *table;		// Table of pairs: 
 					// <file name, file header location> 
+    char *currentPath;
 
     int FindIndex(char *name);		// Find the index into the directory 
 					//  table corresponding to "name"
