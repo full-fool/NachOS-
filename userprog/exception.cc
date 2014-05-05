@@ -73,6 +73,143 @@ ExceptionHandler(ExceptionType which)
 
         }
     }
+    else if(which == SyscallException && type == SC_Create)
+    {
+        int baseAddr = machine->ReadRegister(4);
+        int readValue;
+        int count = 0;
+        do{
+          machine->ReadMem(baseAddr++, 1, &readValue);
+          count++;
+        }while(readValue != 0);
+
+        baseAddr -= count;
+        char *fileName = new char[count];
+        for(int i=0; i<count; i++)
+        {
+          machine->ReadMem(baseAddr + i, 1, &readValue);
+          fileName[i] = (char)readValue;
+        }
+        fileSystem->Create(fileName, 1024, 'f');
+        machine->AddPC();
+    }
+    else if(which == SyscallException && type == SC_Open)
+    {
+#ifdef FILESYS_STUB
+      int baseAddr = machine->ReadRegister(4);
+      int readValue;
+      int count = 0;
+      do{
+        machine->ReadMem(baseAddr++, 1, &readValue);
+        count++;
+      }while(readValue != 0);
+
+      baseAddr -= count;
+      char *fileName = new char[count];
+      for(int i=0; i<count; i++)
+      {
+        machine->ReadMem(baseAddr + i, 1, &readValue);
+        fileName[i] = (char)readValue;
+      }
+      OpenFile *openfile = fileSystem->Open(fileName);
+      machine->WriteRegister(2, openfile->getFile());
+#endif
+      machine->AddPC();
+    }
+    else if(which == SyscallException && type == SC_Close)
+    {
+      int fileId = machine->ReadRegister(4);
+      Close(fileId);
+      machine->AddPC();
+    }
+    else if(which == SyscallException && type == SC_Write)
+    {
+      int baseAddr = machine->ReadRegister(4);
+      int size = machine->ReadRegister(5);
+      int fileId = machine->ReadRegister(6);
+      int readValue;
+      int count = 0;
+      do{
+        machine->ReadMem(baseAddr++, 1, &readValue);
+        count++;
+      }while(readValue != 0);
+
+      baseAddr -= count;
+      char *content = new char[count];
+      for(int i=0; i<count; i++)
+      {
+        machine->ReadMem(baseAddr + i, 1, &readValue);
+        content[i] = (char)readValue;
+      }
+      OpenFile *openfile = new OpenFile(fileId);
+      openfile->Write(content, size);
+      delete openfile;
+      machine->AddPC();
+    }
+    else if(which == SyscallException && type == SC_Read)
+    {
+      int baseAddr = machine->ReadRegister(4);
+      int size = machine->ReadRegister(5);
+      int fileId = machine->ReadRegister(6);
+      int count = 0;
+      char *temp = new char[size];
+      OpenFile *openfile = new OpenFile(fileId);
+      count = openfile->Read(temp, size);
+      for(int i=0; i<size; i++)
+      {
+        machine->WriteMem(baseAddr+i, 1, temp[i]);
+      }
+      machine->WriteRegister(2, count);
+      delete openfile;
+      machine->AddPC();
+    }
+    else if(which == SyscallException && type == SC_Exec)
+    {
+      int baseAddr = machine->ReadRegister(4);
+      int readValue;
+      int count = 0;
+      AddrSpace *space;
+      do{
+        machine->ReadMem(baseAddr++, 1, &readValue);
+        count++;
+      }while(readValue != 0);
+      baseAddr -= count;
+      char *fileName = new char[count];
+      for(int i=0; i<count; i++)
+      {
+        machine->ReadMem(baseAddr + i, 1, &readValue);
+        fileName[i] = (char)readValue;
+      }
+
+      OpenFile *executable = fileSystem->Open(fileName);
+      if(executable == NULL)
+      {
+        printf("cannot open %s\n", fileName);
+        machine->AddPC();
+        return;
+      }
+      space = new AddrSpace(executable);
+      currentThread->space = space;
+      space->InitRegisters();
+      space->RestoreState();
+      delete space;
+      machine->Run();
+      ASSERT(FALSE);
+
+
+    }
+
+    else if(which == SyscallException && type == SC_Join)
+    {
+
+    }
+    else if(which == SyscallException && type == SC_Exit)
+    {
+      currentThread->Finish();
+      machine->AddPC();
+    }
+
+
     else 
     {
    	    if(which == IllegalInstrException && type == SC_Halt)

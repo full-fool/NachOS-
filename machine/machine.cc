@@ -346,4 +346,12 @@ Machine::LoadPage(int virtualAddr)
     space->RestoreState();  
 }
 
+bool
+Machine::AddPC()
+{
+    WriteRegister(PrevPCReg, machine->ReadRegister(PCReg));
+    WriteRegister(PCReg, machine->ReadRegister(NextPCReg));
+    WriteRegister(NextPCReg, machine->ReadRegister(NextPCReg) + sizeof(int));
+}
+
 

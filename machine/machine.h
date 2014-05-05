@@ -147,6 +147,7 @@ class Machine {
     void DumpState();		// print the user CPU and memory state 
     bool TlbSwap(int virtualAddr, int choose);         //to swap tlb entry
     bool LoadPage(int virtualAddr);
+    bool AddPC();                   //to move the PC
 
 
 // Data structures -- all of these are accessible to Nachos kernel code.
