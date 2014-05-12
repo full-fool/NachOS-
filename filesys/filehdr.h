@@ -39,7 +39,7 @@
 
 class FileHeader {
   public:
-    bool Allocate(BitMap *bitMap, int fileSize);// Initialize a file header, 
+    bool Allocate(BitMap *bitMap, int fileSize, int thisSector);// Initialize a file header, 
 						//  including allocating space 
 						//  on disk for the file data
     void Deallocate(BitMap *bitMap);  		// De-allocate this file's 
@@ -60,8 +60,14 @@ class FileHeader {
     bool EnlargeFile(BitMap *freeMap, int bytesNeeded);
 
     void Print();			// Print the contents of the file.
+    //int getSector(){return hdrSector;}
+    void PrintSectors(){
+        for(int i=0; i<30; i++)
+            printf("%d\n", dataSectors[i]);
+    }
 
   private:
+    //int hdrSector;
     int numBytes;			// Number of bytes in the file
     int numSectors;			// Number of data sectors in the file
     int dataSectors[NumDirect];		// Disk sector numbers for each data 

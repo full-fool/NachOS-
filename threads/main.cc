@@ -60,7 +60,7 @@ extern int testnum;
 // External functions used by this file
 
 extern void ThreadTest(int n), Copy(char *unixFile, char *nachosFile);
-extern void Print(char *file), PerformanceTest(void);
+extern void Print(char *targetPath, char *file), PerformanceTest(void), ChangeDirectory(char *newPath), PrintDirectory();
 extern void StartProcess(char *file), ConsoleTest(char *in, char *out);
 extern void MailTest(int networkID);
 
@@ -141,13 +141,21 @@ main(int argc, char **argv)
 	    ASSERT(argc > 2);
 	    Copy(*(argv + 1), *(argv + 2));
 	    argCount = 3;
-	} else if (!strcmp(*argv, "-p")) {	// print a Nachos file
+	} else if (!strcmp(*argv, "-pwd")) { // print a Nachos file
+      ASSERT(argc > 0);
+      PrintDirectory();
+      argCount = 1;
+  }else if (!strcmp(*argv, "-cd")) { // print a Nachos file
+      ASSERT(argc > 1);
+      ChangeDirectory(*(argv + 1));
+      argCount = 2;
+  } else if (!strcmp(*argv, "-p")) {	// print a Nachos file
 	    ASSERT(argc > 1);
-	    Print(*(argv + 1));
+	    Print(*(argv + 1), *(argv + 2));
 	    argCount = 2;
 	} else if (!strcmp(*argv, "-r")) {	// remove Nachos file
 	    ASSERT(argc > 1);
-	    fileSystem->Remove(*(argv + 1));
+	    fileSystem->Remove(*(argv + 1), *(argv + 2));
 	    argCount = 2;
 	} else if (!strcmp(*argv, "-l")) {	// list Nachos directory
             fileSystem->List();

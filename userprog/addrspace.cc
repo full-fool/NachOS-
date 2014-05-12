@@ -76,7 +76,7 @@ AddrSpace::AddrSpace(OpenFile *executable)
 			+ UserStackSize;	// we need to increase the size
 						// to leave room for the stack
     numPages = divRoundUp(size, PageSize);
-    printf("in %s thread, we need %d pages\n", currentThread->getName(), numPages);
+    //printf("in %s thread, we need %d pages\n", currentThread->getName(), numPages);
     //printf("this thread needs %d pages \n", numPages);
     size = numPages * PageSize;
     DEBUG('a', "Initializing address space, num pages %d, size %d\n", 
@@ -92,8 +92,14 @@ AddrSpace::AddrSpace(OpenFile *executable)
         lessPageNum = clearMem;
         char tempBuffer[size + 10];
         char *fileName = currentThread->getName();
-        fileSystem->Create(fileName, 0, 'f');
+#ifdef FILESYS_STUB 
+        fileSystem->Create(fileName, 0);
         swapFile = fileSystem->Open(fileName);
+#else
+        fileSystem->Create(fileName, 0, 'f', "/");
+        swapFile = fileSystem->Open("/", fileName);
+#endif
+       
         if(swapFile == NULL)
         {
             printf("unable to open %s swap zone\n", fileName);

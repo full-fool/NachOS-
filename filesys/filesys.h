@@ -47,9 +47,12 @@ class FileSystem {
 
     bool Create(char *name, int initialSize) { 
 	int fileDescriptor = OpenForWrite(name);
+  //printf("file %s is created\n",name);
 
 	if (fileDescriptor == -1) return FALSE;
 	Close(fileDescriptor); 
+  printf("file %s is created successfully\n",name);
+
 	return TRUE; 
 	}
 
@@ -63,8 +66,10 @@ class FileSystem {
     bool Remove(char *name) { return Unlink(name) == 0; }
 
 };
+//#endif
 
 #else // FILESYS
+//#ifdef FILESYS_ADV
 class FileSystem {
   public:
     FileSystem(bool format);		// Initialize the file system.
@@ -74,21 +79,33 @@ class FileSystem {
 					// the disk, so initialize the directory
     					// and the bitmap of free blocks.
 
-    bool Create(char *name, int initialSize, char type);  	
+    bool Create(char *name, int initialSize, char type, char *targetPath);  	
 					// Create a file (UNIX creat)
+    bool Create(char *name, int initialize, char type);
 
-    OpenFile* Open(char *name); 	// Open a file (UNIX open)
+    OpenFile* Open(char *targetPath, char *name); 	// Open a file (UNIX open)
 
-    bool Remove(char *name);  		// Delete a file (UNIX unlink)
+    OpenFile* Open(char *name);
+
+    bool Remove(char *targetPath, char *name);  		// Delete a file (UNIX unlink)
+
+    bool Remove(char *name);
 
     void List();			// List all the files in the file system
 
     void Print();			// List all the files and their contents
 
+    void updateFileModified(int sector);
+
+    void getCurrentPath(){printf("currentPath is %s now\n", currentPath);}
+
+    bool changeDirectory(char *newPath);
+
   private:
    OpenFile* freeMapFile;		// Bit map of free disk blocks,
 					// represented as a file
    OpenFile* directoryFile;		// "Root" directory -- list of 
+   char currentPath[100];
 					// file names, represented as a file
 };
 

@@ -56,6 +56,7 @@ ExceptionHandler(ExceptionType which)
     if ((which == SyscallException) && (type == SC_Halt)) 
     {
         DEBUG('a', "Shutdown, initiated by user program.\n");
+        printf("it's going to halt\n");
    	    interrupt->Halt();
     }
     else if(which == PageFaultException)
@@ -75,13 +76,15 @@ ExceptionHandler(ExceptionType which)
     }
     else if(which == SyscallException && type == SC_Create)
     {
+        printf("syscall create called\n");
         int baseAddr = machine->ReadRegister(4);
         int readValue;
         int count = 0;
         do{
           machine->ReadMem(baseAddr++, 1, &readValue);
           count++;
-        }while(readValue != 0);
+        }while(*(char *)&readValue != '\0');
+        //printf("filename length is %d\n", count);
 
         baseAddr -= count;
         char *fileName = new char[count];
@@ -90,12 +93,19 @@ ExceptionHandler(ExceptionType which)
           machine->ReadMem(baseAddr + i, 1, &readValue);
           fileName[i] = (char)readValue;
         }
-        fileSystem->Create(fileName, 1024, 'f');
+        //printf("file %s needs to be created\n", fileName);
+#ifdef FILESYS_STUB
+        fileSystem->Create(fileName, 128);
+#else 
+        fileSystem->Create(fileName, 128, 'f', "/");
+#endif
+
         machine->AddPC();
     }
     else if(which == SyscallException && type == SC_Open)
     {
 #ifdef FILESYS_STUB
+      printf("syscall open called\n");
       int baseAddr = machine->ReadRegister(4);
       int readValue;
       int count = 0;
@@ -118,12 +128,14 @@ ExceptionHandler(ExceptionType which)
     }
     else if(which == SyscallException && type == SC_Close)
     {
+      printf("syscall close called\n");
       int fileId = machine->ReadRegister(4);
       Close(fileId);
       machine->AddPC();
     }
     else if(which == SyscallException && type == SC_Write)
     {
+      printf("syscall write called\n");
       int baseAddr = machine->ReadRegister(4);
       int size = machine->ReadRegister(5);
       int fileId = machine->ReadRegister(6);
@@ -148,6 +160,7 @@ ExceptionHandler(ExceptionType which)
     }
     else if(which == SyscallException && type == SC_Read)
     {
+      printf("syscall read called\n");
       int baseAddr = machine->ReadRegister(4);
       int size = machine->ReadRegister(5);
       int fileId = machine->ReadRegister(6);
@@ -180,8 +193,12 @@ ExceptionHandler(ExceptionType which)
         machine->ReadMem(baseAddr + i, 1, &readValue);
         fileName[i] = (char)readValue;
       }
+#ifdef FILESYS_STUB
 
       OpenFile *executable = fileSystem->Open(fileName);
+#else
+      OpenFile *executable = fileSystem->Open("/", fileName);
+#endif
       if(executable == NULL)
       {
         printf("cannot open %s\n", fileName);
@@ -201,10 +218,11 @@ ExceptionHandler(ExceptionType which)
 
     else if(which == SyscallException && type == SC_Join)
     {
-
+      
     }
     else if(which == SyscallException && type == SC_Exit)
     {
+      printf("the procedure exited\n");
       currentThread->Finish();
       machine->AddPC();
     }

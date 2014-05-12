@@ -109,6 +109,7 @@ Machine::ReadMem(int addr, int size, int *value)
     }
     switch (size) {
       case 1:
+      //printf("memread char is %c\n", machine->mainMemory[physicalAddress]);
 	data = machine->mainMemory[physicalAddress];
 	*value = data;
 	break;
@@ -258,7 +259,7 @@ Machine::Translate(int virtAddr, int* physAddr, int size, bool writing)
 					tlb[j].order -= 1;
 				}
 				tlb[i].order = TLBSize - 1;
-				printf("tlb hit on %d\n", i);
+				//printf("tlb hit on %d\n", i);
 				break;
 	    	}
 		}

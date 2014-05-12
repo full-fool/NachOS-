@@ -19,7 +19,7 @@
 
 #include "openfile.h"
 
-#define FileNameMaxLen 		9	// for simplicity, we assume 
+#define FileNameMaxLen 		40	// for simplicity, we assume 
 					// file names are <= 9 characters long
 
 // The following class defines a "directory entry", representing a file
@@ -34,14 +34,15 @@ class DirectoryEntry {
     bool inUse;				// Is this directory entry in use?
     int sector;				// Location on disk to find the 
 					//   FileHeader for this file 
-    //char name[FileNameMaxLen + 1];	// Text name for file, with +1 for 
+    char name[FileNameMaxLen + 1];	// Text name for file, with +1 for 
 					// the trailing '\0'
-    char *name; 
+    //char *name; 
     char type;          //'f' denotes file, 'd' denotes directory
-    char createTime[20];
-    char lastVisited[20];
-    char lastModified[20];
-    char *path;
+    char createTime[25];
+    char lastVisited[25];
+    char lastModified[25];
+    char path[100];
+    int threadNumber;
 
 };
 
@@ -65,7 +66,7 @@ class Directory {
     void WriteBack(OpenFile *file);	// Write modifications to 
 					// directory contents back to disk
 
-    int Find(char *name);		// Find the sector number of the 
+    int Find(char *targetPath, char *name);		// Find the sector number of the 
 					// FileHeader for file: "name"
 
     bool Add(char *name, int newSector, char type, char *targetPath);  // Add a file name into the directory
@@ -77,14 +78,30 @@ class Directory {
     void Print();			// Verbose print of the contents
 					//  of the directory -- all the file
 					//  names and their contents.
-    char *getCurrentPath(){return currentPath;}
+    //char *getCurrentPath(){return currentPath;}
+    void PrintTableEntry(){
+        for(int i=0; i<tableSize; i++)
+            printf("entry name is %s and sector is %d\n", table[i].name, table[i].sector);
+
+    }
+    void addThread(char *targetPath, char *name);
+    void subThread(char *targetPath, char *name);
+    int getThread(char *targetPath, char *name);
+    void updateTime(char needUpdate[]);
+    void updateVisitedTime(char *targetPath, char *name);
+    void updateModifiedTime(int sector);
+    void updateModified(char *targetPath, char *name);
+    bool existDirectory(char *fullPath);
+    int getTableSize(){return tableSize;}
+    //bool changeDirectory(char *newPath);
+
   private:
     int tableSize;			// Number of directory entries
     DirectoryEntry *table;		// Table of pairs: 
 					// <file name, file header location> 
-    char *currentPath;
+    //char *currentPath;
 
-    int FindIndex(char *name);		// Find the index into the directory 
+    int FindIndex(char *targetPath, char *name);		// Find the index into the directory 
 					//  table corresponding to "name"
 };
 

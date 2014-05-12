@@ -39,8 +39,9 @@
 //----------------------------------------------------------------------
 
 bool
-FileHeader::Allocate(BitMap *freeMap, int fileSize)
+FileHeader::Allocate(BitMap *freeMap, int fileSize, int thisSector)
 { 
+    //hdrSector = thisSector;
     numBytes = fileSize;
     numSectors  = divRoundUp(fileSize, SectorSize);
     if (freeMap->NumClear() < numSectors)
@@ -52,6 +53,8 @@ FileHeader::Allocate(BitMap *freeMap, int fileSize)
         for (int i = 0; i < numSectors; i++)
             dataSectors[i] = freeMap->Find();
         dataSectors[29] = -1;
+        //printf("numSectors is small and dataSectors[29] is set to %d, hdrSector is %d\n", 
+          //  dataSectors[29], hdrSector);
     }
     else
     {
@@ -159,6 +162,7 @@ FileHeader::ByteToSector(int offset)
         char *temp = new char[SectorSize];
         synchDisk->ReadSector(dataSectors[29], temp);
         secondIndex = (int *)temp;
+        //printf("in 2-level index offset %d is in phy sector number %d\n", offset, secondIndex[firstSector - 29]);
         return(secondIndex[firstSector - 29]);
     }
 
@@ -190,7 +194,7 @@ FileHeader::Print()
 
     printf("FileHeader contents.  File size: %d.  File blocks:\n", numBytes);
     for (i = 0; i < numSectors; i++)
-	printf("%d ", dataSectors[i]);
+	   printf("%d ", dataSectors[i]);
     printf("\nFile contents:\n");
     for (i = k = 0; i < numSectors; i++) {
 	synchDisk->ReadSector(dataSectors[i], data);
@@ -214,6 +218,12 @@ bool
 FileHeader::EnlargeFile(BitMap *freeMap, int bytesNeeded)
 {
     int newSectors = divRoundUp(bytesNeeded, SectorSize);
+    printf("in FileHeader::EnlargeFile, newSectors is %d and numSectors is %d\n",
+    newSectors, numSectors);
+    //printf("the sector num is %d and situation is \n", getSector());
+    //for(int i=0; i<30; i++)
+    //   printf("%d\n", dataSectors[i]);
+    //printf("the dataSectors[29] is %d\n", dataSectors[29]);
     if(freeMap->NumClear() < newSectors)
         return FALSE;
     if(newSectors + numSectors >29+32)
@@ -230,7 +240,13 @@ FileHeader::EnlargeFile(BitMap *freeMap, int bytesNeeded)
             for(int i=numSectors-29; i<newSectors+numSectors-29; i++)          //clear 2-level index first
             {
                 secondIndex[i] = freeMap->Find();
+                printf("secondIndex[%d] is %d\n", i, secondIndex[i]);
             }
+            synchDisk->WriteSector(dataSectors[29], (char *)secondIndex); 
+            numSectors += newSectors;
+            numBytes += bytesNeeded;
+            printf("in situation 1 and now numSectors is %d, newSectors is %d, numBytes is %d\n", 
+                numSectors, newSectors, numBytes);
         }
         else
         {
@@ -240,13 +256,21 @@ FileHeader::EnlargeFile(BitMap *freeMap, int bytesNeeded)
                 dataSectors[i] = freeMap->Find();
             }
             int secondSector = dataSectors[29];
+            printf("in situation 2 new secondSector found is sector %d\n",secondSector);
             int secondNeedSec = numSectors + newSectors - 29;
             int *secondIndex = new int[secondNeedSec];
             for(int i=0; i<secondNeedSec; i++)
             {
                 secondIndex[i] = freeMap->Find();
+                printf("secondIndex[%d] is %d\n", i, secondIndex[i]);
             }
             synchDisk->WriteSector(secondSector, (char *)secondIndex); 
+            numSectors += newSectors;
+            numBytes += bytesNeeded;
+            printf("in situation 2 and now numSectors is %d, newSectors is %d, numBytes is %d\n", 
+                numSectors, newSectors, numBytes);
+
+
         }
         return TRUE;
     }
@@ -256,7 +280,13 @@ FileHeader::EnlargeFile(BitMap *freeMap, int bytesNeeded)
         for(int i=numSectors; i<numSectors+newSectors; i++)
         {
             dataSectors[i] = freeMap->Find();
+            printf("in situation 3 new sector found is %d\n", dataSectors[i]);
         }
+        numSectors += newSectors;
+        numBytes += bytesNeeded;
+        printf("in situation 3 and now numSectors is %d, newSectors is %d, numBytes is %d\n", 
+            numSectors, newSectors, numBytes);
+
         return TRUE;
     }
     return FALSE;

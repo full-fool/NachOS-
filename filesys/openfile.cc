@@ -15,9 +15,12 @@
 #include "filehdr.h"
 #include "openfile.h"
 #include "system.h"
+#include "directory.h"
 #ifdef HOST_SPARC
 #include <strings.h>
 #endif
+
+#define NumDirEntries       10
 
 //----------------------------------------------------------------------
 // OpenFile::OpenFile
@@ -29,8 +32,11 @@
 
 OpenFile::OpenFile(int sector)
 { 
+    hdrSector = sector;
     hdr = new FileHeader;
     hdr->FetchFrom(sector);
+   // printf("in OpenFile::OpenFile, the sector number is %d and situation is \n", hdr->getSector());
+    //hdr->PrintSectors();
     seekPosition = 0;
 }
 
@@ -82,6 +88,7 @@ OpenFile::Read(char *into, int numBytes)
 int
 OpenFile::Write(char *into, int numBytes)
 {
+   //printf("in OpenFile::Write, char is %s and numBytes is %d\n", into, numBytes);
    int result = WriteAt(into, numBytes, seekPosition);
    seekPosition += result;
    return result;
@@ -118,6 +125,8 @@ OpenFile::ReadAt(char *into, int numBytes, int position)
 {
     //printf("call readat here in .cc\n");
     int fileLength = hdr->FileLength();
+    //printf("in OpenFile::ReadAt, the fileLength is %d and hdrSector is %d\n", fileLength, hdrSector);
+    //hdr->PrintSectors();
     int i, firstSector, lastSector, numSectors;
     char *buf;
 
@@ -147,23 +156,35 @@ OpenFile::ReadAt(char *into, int numBytes, int position)
 int
 OpenFile::WriteAt(char *from, int numBytes, int position)
 {
+   
+    //fileSystem->List();
     int fileLength = hdr->FileLength();
+    int prevSecNum = divRoundUp(fileLength, SectorSize);
+    //printf("char is %s and fileLength is %d bytes and numBytes is %d, position is %d!!!!!\n", 
+    //    from, fileLength, numBytes, position);
+
     int i, firstSector, lastSector, numSectors;
     bool firstAligned, lastAligned;
     char *buf;
 
-    if ((numBytes <= 0) || (position >= fileLength))
+    if (numBytes <= 0)
 	return 0;				// check request
-    if ((position + numBytes) > fileLength)             //have to enlarge the file
+    if ((position + numBytes) > prevSecNum * SectorSize)             //have to enlarge the file
     {        
-        hdr->ChangeFileLength(position + numBytes);
+        printf("the file has to be enlarged in OpenFile::WriteAt\n");
+        //hdr->ChangeFileLength(position + numBytes);
         int neededBytes = position + numBytes - fileLength;
         BitMap *freeMap = new BitMap(NumSectors);
         OpenFile *freeMapFile = new OpenFile(0);                    //open freemap file
         freeMap->FetchFrom(freeMapFile);
         hdr->EnlargeFile(freeMap, neededBytes);
-        //hdr->WriteBack()   
+        freeMap->WriteBack(freeMapFile);
 
+    }
+    if(position + numBytes > fileLength)
+    {
+        hdr->ChangeFileLength(position + numBytes);
+        hdr->WriteBack(hdrSector);   
     }
     DEBUG('f', "Writing %d bytes at %d, from file of length %d.\n", 	
 			numBytes, position, fileLength);

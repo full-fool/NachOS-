@@ -118,6 +118,7 @@ Disk::ReadRequest(int sectorNumber, char* data)
     int ticks = ComputeLatency(sectorNumber, FALSE);
 
     ASSERT(!active);				// only one request at a time
+    //printf("in Disk::ReadRequest, sectornumber is %d\n", sectorNumber);
     ASSERT((sectorNumber >= 0) && (sectorNumber < NumSectors));
     
     DEBUG('d', "Reading from sector %d\n", sectorNumber);
@@ -146,6 +147,10 @@ Disk::WriteRequest(int sectorNumber, char* data)
     if (DebugIsEnabled('d'))
 	PrintSector(TRUE, sectorNumber, data);
     
+    //printf("in Disk::WriteRequest, sector number is %d and situation is\n", sectorNumber);
+    //PrintSector(TRUE, sectorNumber, data);
+
+
     active = TRUE;
     UpdateLast(sectorNumber);
     stats->numDiskWrites++;

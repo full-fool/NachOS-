@@ -3,11 +3,17 @@
 int main()
 {
     //printf("haha\n");
-    int b = 1;
-    int i;
-    int a[10];
-    for(i=0; i<10; i++)
-    	a[i] = i + 1;
-    Halt();
+    //Create("haha");
     //return 0;
+    //Halt();
+    int fileId;
+    char buffer[5];
+    Create("hongheila");
+    //int fileId = 0;
+    
+    fileId = Open("hongheila");
+	Write("abcd", 5, fileId);
+	Read(buffer, 4, fileId);
+	
+    Exit(0);
 }

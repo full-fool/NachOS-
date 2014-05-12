@@ -24,6 +24,8 @@
 #include "utility.h"
 #include "filehdr.h"
 #include "directory.h"
+#include "time.h"
+#include "memory.h"
 
 //----------------------------------------------------------------------
 // Directory::Directory
@@ -39,7 +41,7 @@ Directory::Directory(int size)
 {
     table = new DirectoryEntry[size];
     tableSize = size;
-    currentPath = "/";
+    //currentPath = "/";
     for (int i = 0; i < tableSize; i++)
 	table[i].inUse = FALSE;
 }
@@ -89,10 +91,10 @@ Directory::WriteBack(OpenFile *file)
 //----------------------------------------------------------------------
 
 int
-Directory::FindIndex(char *name)
+Directory::FindIndex(char *targetPath, char *name)
 {
     for (int i = 0; i < tableSize; i++)
-        if (table[i].inUse && !strncmp(table[i].name, name, FileNameMaxLen))
+        if (table[i].inUse && !strncmp(table[i].name, name, FileNameMaxLen) &&  !strcmp(targetPath, table[i].path))
 	    return i;
     return -1;		// name not in directory
     // for(int i=0; i<tableSize; i++)
@@ -114,12 +116,15 @@ Directory::FindIndex(char *name)
 //----------------------------------------------------------------------
 
 int
-Directory::Find(char *name)
+Directory::Find(char *targetPath, char *name)
 {
-    int i = FindIndex(name);
+    int i = FindIndex(targetPath, name);
 
     if (i != -1)
-	return table[i].sector;
+    {
+        //updateTime(table[i].lastVisited);
+        return table[i].sector;
+    }
     return -1;
 }
 
@@ -148,12 +153,19 @@ Directory::Add(char *name, int newSector, char type, char *targetPath)
     for (int i = 0; i < tableSize; i++)
         if (!table[i].inUse) {
             table[i].inUse = TRUE;
-            //strncpy(table[i].name, name, FileNameMaxLen); 
-            table[i].name = name;
-            table[i].path = targetPath;
+            strncpy(table[i].name, name, FileNameMaxLen); 
+            //table[i].name = name;
+            //table[i].path = targetPath;
+            strncpy(table[i].path, targetPath, 100);
             table[i].type = type;
             table[i].sector = newSector;
-        return TRUE;
+            table[i].threadNumber = 0;
+            updateTime(table[i].createTime);
+            updateTime(table[i].lastVisited);
+            updateTime(table[i].lastModified);
+            printf("file named %s has been successfully added to table[%d]\n", name, i);
+
+            return TRUE;
 	}
     return FALSE;	// no space.  Fix when we have extensible files.
 }
@@ -192,17 +204,20 @@ Directory::Remove(char *targetPath, char *name)
     else                                    //delete a directory
     {
         char *fullPath = new char[100];
+        memset(fullPath, 0, sizeof fullPath);
         strcat(fullPath, targetPath);
-        strcat(fullPath, "/");
         strcat(fullPath, name);
+        strcat(fullPath, "/");
+        int len = strlen(fullPath);
         table[index].inUse = FALSE;
         for(int i=0; i<tableSize; i++)
         {
-            if(table[i].inUse && !strcmp(table[i].path, fullPath))
+            if(table[i].inUse && !strncmp(table[i].path, fullPath, len))
             {
-                Remove(fullPath, table[i].name);
+               table[i].inUse = FALSE;
             }
         }
+        delete fullPath;
     }
     
 
@@ -235,11 +250,153 @@ Directory::Print()
 
     printf("Directory contents:\n");
     for (int i = 0; i < tableSize; i++)
-	if (table[i].inUse) {
-	    printf("Name: %s, Sector: %d\n", table[i].name, table[i].sector);
-	    hdr->FetchFrom(table[i].sector);
-	    hdr->Print();
-	}
+    {
+        //printf("now is is %d\n", i);
+        if (table[i].inUse) 
+        {
+            printf("and now table[%d] is inUse\n", i);
+            printf("Name: %s\n", table[i].name);
+            printf("Path: %s\n", table[i].path);
+            printf("Sector: %d\n", table[i].sector);
+            //printf("Name: %s, Path: %s, Sector: %d\n", table[i].name, table[i].path, table[i].sector);
+            printf("createTime: %s, lastVisited: %s, lastModified %s\n", 
+                table[i].createTime, table[i].lastVisited, table[i].lastModified);
+            //hdr->FetchFrom(table[i].sector);
+            //hdr->Print();
+        }
+    }
+	
     printf("\n");
     delete hdr;
 }
+
+
+ void 
+ Directory::addThread(char *targetPath, char *name)
+ {
+    int i = FindIndex(targetPath, name);
+    table[i].threadNumber++;
+ }
+
+void 
+Directory::subThread(char *targetPath, char *name)
+{
+    int i = FindIndex(targetPath, name);
+    table[i].threadNumber--;
+}
+
+int 
+Directory::getThread(char *targetPath, char *name)
+{
+    int i = FindIndex(targetPath, name);
+    return table[i].threadNumber;
+}
+
+void 
+Directory::updateTime(char needUpdate[])
+{
+    time_t rawTime;
+    tm *timeInfo;
+    time(&rawTime);
+    timeInfo = localtime(&rawTime);
+    char *temp = asctime(timeInfo);
+    strncpy(needUpdate, temp, 24);
+}
+
+void 
+Directory::updateVisitedTime(char *targetPath, char *name)
+{
+    int i = FindIndex(targetPath, name);
+    updateTime(table[i].lastVisited);
+}
+
+void 
+Directory::updateModifiedTime(int sector)
+{
+    int index;
+    for (int i = 0; i < tableSize; i++)
+    {
+        if (table[i].inUse && table[i].sector == sector)
+        {
+            index = i;
+            break;
+        }
+    }
+    updateTime(table[index].lastModified);  
+}
+
+void 
+Directory::updateModified(char *targetPath, char *name)
+{
+    int i = FindIndex(targetPath, name);
+    updateTime(table[i].lastModified);
+}
+
+bool 
+Directory::existDirectory(char *fullPath)
+{
+    if(!strcmp("/", fullPath))
+    {
+        return TRUE;
+        printf("path is / and already existed\n");
+    }
+
+    char *newPath = new char[100];
+    for(int i=0; i<tableSize; i++)
+    {
+        if(table[i].inUse && table[i].type == 'd')
+        {
+            
+            memset(newPath, 0, sizeof newPath);
+            strcat(newPath, table[i].path);
+            strcat(newPath, table[i].name);
+            strcat(newPath, "/");
+            printf("new path is %s now\n", newPath);
+            if(!strcmp(newPath, fullPath))
+            {
+                printf("new path is %s and fullPath is %s, they equal\n",newPath, fullPath);
+                delete newPath;
+                return TRUE;
+            }
+        }
+    }
+    printf("no such directory!\n");
+    delete newPath;
+    return FALSE;
+}
+
+
+/*
+bool 
+Directory::changeDirectory(char *newPath)
+{
+    if(!strcmp("/", newPath))
+    {
+        currentPath = "/";
+        return TRUE;
+    }
+    char *fullPath = new char[100];
+    for(int i=0; i<tableSize; i++)
+    {
+        if(table[i].inUse && table[i].type == 'd')
+        {
+            memset(fullPath, 0, sizeof fullPath);
+            strcat(fullPath, table[i].path);
+            strcat(fullPath, "/");
+            strcat(fullPath, table[i].name);
+            if(!strcmp(fullPath, newPath))
+            {
+                currentPath = newPath;
+                delete fullPath;
+                return TRUE;
+            }
+        }
+    }
+    printf("no such directory!\n");
+    delete fullPath;
+    return FALSE;
+}
+
+*/
+
+

@@ -57,6 +57,7 @@ Copy(char *from, char *to)
     
     openFile = fileSystem->Open(to);
     ASSERT(openFile != NULL);
+    printf("file %s opened successfully\n", to);
     
 // Copy the data in TransferSize chunks
     buffer = new char[TransferSize];
@@ -75,13 +76,13 @@ Copy(char *from, char *to)
 //----------------------------------------------------------------------
 
 void
-Print(char *name)
+Print(char *targetPath, char *name)
 {
     OpenFile *openFile;    
     int i, amountRead;
     char *buffer;
 
-    if ((openFile = fileSystem->Open(name)) == NULL) {
+    if ((openFile = fileSystem->Open(targetPath, name)) == NULL) {
 	printf("Print: unable to open file %s\n", name);
 	return;
     }
@@ -96,6 +97,18 @@ Print(char *name)
     return;
 }
 
+
+void ChangeDirectory(char *newPath)
+{
+    fileSystem->changeDirectory(newPath);
+    printf("now currentPaht is changed to %s\n", newPath);
+}
+
+
+void PrintDirectory()
+{
+    fileSystem->getCurrentPath();
+}
 //----------------------------------------------------------------------
 // PerformanceTest
 // 	Stress the Nachos file system by creating a large file, writing
@@ -111,7 +124,7 @@ Print(char *name)
 #define FileName 	"TestFile"
 #define Contents 	"1234567890"
 #define ContentSize 	strlen(Contents)
-#define FileSize 	((int)(ContentSize * 5000))
+#define FileSize 	((int)(ContentSize * 500))
 
 static void 
 FileWrite()
@@ -121,23 +134,39 @@ FileWrite()
 
     printf("Sequential write of %d byte file, in %d byte chunks\n", 
 	FileSize, ContentSize);
-    if (!fileSystem->Create(FileName, 0, 'fb')) {
-      printf("Perf test: can't create %s\n", FileName);
-      return;
+    
+    if (!fileSystem->Create("testDirectory", 0, 'd', "/")) {
+      printf("Perf test: can't create directory");
+      //return;
     }
-    openFile = fileSystem->Open(FileName);
+
+    
+    if (!fileSystem->Create("fileUnderDirectory", 0, 'f', "/testDirectory/")) {
+      printf("Perf test: can't create directory file");
+      //return;
+    }
+    
+
+    if (!fileSystem->Create(FileName, 0, 'f', "/")) {
+      printf("Perf test: can't create %s\n", FileName);
+      //return;
+    }
+    //printf("reach here\n");
+    openFile = fileSystem->Open("/", FileName);
     if (openFile == NULL) {
 	printf("Perf test: unable to open %s\n", FileName);
 	return;
     }
     for (i = 0; i < FileSize; i += ContentSize) {
         numBytes = openFile->Write(Contents, ContentSize);
-	if (numBytes < 10) {
-	    printf("Perf test: unable to write %s\n", FileName);
-	    delete openFile;
-	    return;
-	}
+        //printf("i is %d and \n", );
+	   if (numBytes < 10) {
+	       printf("Perf test: unable to write %s\n", FileName);
+	       delete openFile;
+	       return;
+	   }
     }
+    //printf("write succeeded!!!!!!\n");
     delete openFile;	// close file
 }
 
@@ -151,35 +180,97 @@ FileRead()
     printf("Sequential read of %d byte file, in %d byte chunks\n", 
 	FileSize, ContentSize);
 
+
+
     if ((openFile = fileSystem->Open(FileName)) == NULL) {
 	printf("Perf test: unable to open file %s\n", FileName);
 	delete [] buffer;
 	return;
     }
-    for (i = 0; i < FileSize; i += ContentSize) {
+    for (i = 0; i < FileSize; i += ContentSize) 
+    {
         numBytes = openFile->Read(buffer, ContentSize);
-	if ((numBytes < 10) || strncmp(buffer, Contents, ContentSize)) {
-	    printf("Perf test: unable to read %s\n", FileName);
-	    delete openFile;
-	    delete [] buffer;
-	    return;
-	}
+	   if ((numBytes < 10) || strncmp(buffer, Contents, ContentSize)) 
+       {
+    	    printf("Perf test: unable to read %s\n", FileName);
+    	    delete openFile;
+    	    delete [] buffer;
+    	    return;
+	   }
     }
     delete [] buffer;
     delete openFile;	// close file
 }
 
+
+void testFunction()
+{
+    OpenFile *openFile;    
+    int i, numBytes;
+
+    printf("Sequential write of %d byte file, in %d byte chunks\n", 
+    FileSize, ContentSize);
+    fileSystem->getCurrentPath();
+    
+    if (!fileSystem->Create("testDirectory", 0, 'd')) {
+      printf("Perf test: can't create directory");
+      //return;
+    }
+    //fileSystem->Print();
+    
+    if (!fileSystem->Create("fileUnderDirectory", 0, 'f', "/testDirectory/")) {
+      printf("Perf test: can't create directory file");
+      //return;
+    }
+    //fileSystem->Print();
+
+    
+    
+
+    if (!fileSystem->Create(FileName, 0, 'f')) {
+      printf("Perf test: can't create %s\n", FileName);
+      //return;
+    }
+    //printf("reach here\n");
+    openFile = fileSystem->Open(FileName);
+    if (openFile == NULL) {
+    printf("Perf test: unable to open %s\n", FileName);
+    return;
+    }
+    for (i = 0; i < FileSize; i += ContentSize) {
+        numBytes = openFile->Write(Contents, ContentSize);
+        //printf("i is %d and \n", );
+       if (numBytes < 10) {
+           printf("Perf test: unable to write %s\n", FileName);
+           delete openFile;
+           return;
+       }
+    }
+    //fileSystem->Print();
+
+    //fileSystem->Remove("/testDirectory/", "fileUnderDirectory");
+    //fileSystem->Print();
+    //printf("write succeeded!!!!!!\n");
+    delete openFile;    
+}
 void
 PerformanceTest()
 {
-    printf("Starting file system performance test:\n");
-    stats->Print();
-    FileWrite();
+    //printf("Starting file system performance test:\n");
+    //stats->Print();
+    //FileWrite();
+    testFunction();
+    /*
     FileRead();
+    fileSystem->Print();
+    
     if (!fileSystem->Remove(FileName)) {
       printf("Perf test: unable to remove %s\n", FileName);
       return;
     }
     stats->Print();
+    */
+    
+    
 }
 

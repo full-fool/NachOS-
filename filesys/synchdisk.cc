@@ -92,6 +92,7 @@ SynchDisk::WriteSector(int sectorNumber, char* data)
 {
     lock->Acquire();			// only one disk I/O at a time
     disk->WriteRequest(sectorNumber, data);
+    //printf("synchdisk writesector done!!!!!!!\n");
     semaphore->P();			// wait for interrupt
     lock->Release();
 }

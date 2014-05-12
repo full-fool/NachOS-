@@ -36,7 +36,11 @@ changeThread(int which)
 void
 StartProcess(char *filename)
 {
+#ifdef FILESYS_STUB
     OpenFile *executable = fileSystem->Open(filename);
+#else
+    OpenFile *executable = fileSystem->Open("/", filename);
+#endif
     AddrSpace *space;
 
     if (executable == NULL) {
@@ -47,10 +51,9 @@ StartProcess(char *filename)
 
     space = new AddrSpace(executable);    
     currentThread->space = space;
-    printf("%s is running\n", currentThread->getName() );
+    //printf("%s is running\n", currentThread->getName() );
 
-    delete executable;			// close file
-
+    delete executable;		// close file
     space->InitRegisters();		// set the initial register values
     space->RestoreState();		// load page table register
     /*

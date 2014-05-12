@@ -16,7 +16,11 @@
 #include "copyright.h"
 #include "console.h"
 #include "system.h"
+#include "synch.h"
 
+
+static Semaphore *readAvail;
+static Semaphore *writeDone;
 // Dummy functions because C++ is weird about pointers to member functions
 static void ConsoleReadPoll(int c) 
 { Console *console = (Console *)c; console->CheckCharAvail(); }
@@ -147,4 +151,50 @@ Console::PutChar(char ch)
     putBusy = TRUE;
     interrupt->Schedule(ConsoleWriteDone, (int)this, ConsoleTime,
 					ConsoleWriteInt);
+}
+
+
+static void ReadAvail(int arg)
+{
+    readAvail->V();
+}
+
+static void WriteDone(int arg)
+{
+    writeDone->V();
+}
+
+SynchConsole::SynchConsole(char *in, char *out)
+{
+    console = new Console(in, out, ReadAvail, WriteDone, 0);
+    readLock = new Lock("readLock");
+    writeLock = new Lock("writeLock");
+    readAvail = new Semaphore("readAvail", 0);
+    writeDone = new Semaphore("writeDone", 0);
+}
+
+SynchConsole::~SynchConsole()
+{
+
+}
+
+void
+SynchConsole::putChar(char ch)
+{
+    writeLock->Acquire();
+    console->PutChar(ch);
+    writeDone->P();
+    writeLock->Release();
+}
+
+char 
+SynchConsole::getChar()
+{
+    readLock->Acquire();
+    readAvail->P();
+    char c = console->GetChar();
+    readLock->Release();
+    return c;
+
+
 }
