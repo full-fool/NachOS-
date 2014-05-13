@@ -92,7 +92,7 @@ Machine::ReadMem(int addr, int size, int *value)
     int physicalAddress;
     
     DEBUG('a', "Reading VA 0x%x, size %d\n", addr, size);
-    
+    //printf("in ReadMem, %d addr is needed to be read\n", addr);
     exception = Translate(addr, &physicalAddress, size, FALSE);
     if (exception != NoException) 
     {
@@ -151,6 +151,7 @@ Machine::WriteMem(int addr, int size, int value)
     int physicalAddress;
      
     DEBUG('a', "Writing VA 0x%x, size %d, value 0x%x\n", addr, size, value);
+    //printf("in WriteMem, %d addr is needed to be write\n", addr);
 
     exception = Translate(addr, &physicalAddress, size, TRUE);
     if (exception != NoException) 

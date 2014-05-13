@@ -2,18 +2,16 @@
 
 int main()
 {
-    //printf("haha\n");
-    //Create("haha");
-    //return 0;
-    //Halt();
+   
+    int that;
+    char did[20];
     int fileId;
-    char buffer[5];
-    Create("hongheila");
-    //int fileId = 0;
-    
-    fileId = Open("hongheila");
-	Write("abcd", 5, fileId);
-	Read(buffer, 4, fileId);
-	
+    Create("heihaha");
+    fileId = Open("heihaha");
+	Write("hello world!\0", 15, fileId);
+    //char *readbuffer;
+    //Read(readbuffer, 15, fileId);
+    Close(fileId);
     Exit(0);
+    
 }

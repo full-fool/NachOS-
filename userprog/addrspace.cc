@@ -60,6 +60,8 @@ SwapHeader (NoffHeader *noffH)
 //	"executable" is the file containing the object code to load into memory
 //----------------------------------------------------------------------
 
+
+//new version of addrspace
 AddrSpace::AddrSpace(OpenFile *executable)
 {
     NoffHeader noffH;
@@ -75,10 +77,21 @@ AddrSpace::AddrSpace(OpenFile *executable)
     size = noffH.code.size + noffH.initData.size + noffH.uninitData.size 
 			+ UserStackSize;	// we need to increase the size
 						// to leave room for the stack
+    printf("code: size is %d, virtualAddr is %d, inFileAddr is %d\n", 
+        noffH.code.size, noffH.code.virtualAddr, noffH.code.inFileAddr);
+    printf("initData: size is %d, virtualAddr is %d, inFileAddr is %d\n", 
+        noffH.initData.size, noffH.initData.virtualAddr, noffH.initData.inFileAddr);
+    printf("uninitData: size is %d, virtualAddr is %d, inFileAddr is %d\n",
+        noffH.uninitData.size, noffH.uninitData.virtualAddr, noffH.uninitData.inFileAddr);
+    
+
+
+    //printf("code is %d, initData is %d, uninitData is %d, UserStackSize is %d\n", 
+    //    noffH.code.size, noffH.initData.size, noffH.uninitData.size, UserStackSize);
     numPages = divRoundUp(size, PageSize);
-    //printf("in %s thread, we need %d pages\n", currentThread->getName(), numPages);
-    //printf("this thread needs %d pages \n", numPages);
+    printf("file size is %d, numPages is %d\n", size, numPages);    
     size = numPages * PageSize;
+    printf("new size is %d\n", size);
     DEBUG('a', "Initializing address space, num pages %d, size %d\n", 
 					numPages, size);
         // first, set up the translation 
@@ -87,16 +100,19 @@ AddrSpace::AddrSpace(OpenFile *executable)
     int bytesToWrite;
     int clearMem = memoryBitmap->NumClear();
     int lessPageNum;
-    if(clearMem < numPages)   //on this condition, we should write info on swap zone since there is no enough memory
+
+    //on this condition, we should write info on swap zone since there is no enough memory
+    if(clearMem < numPages)   
     {
+        printf("clearMem is not enough in AddrSpace!\n");
         lessPageNum = clearMem;
         char tempBuffer[size + 10];
         char *fileName = currentThread->getName();
 #ifdef FILESYS_STUB 
-        fileSystem->Create(fileName, 0);
+        fileSystem->Create(fileName, size);
         swapFile = fileSystem->Open(fileName);
 #else
-        fileSystem->Create(fileName, 0, 'f', "/");
+        fileSystem->Create(fileName, size, 'f', "/");
         swapFile = fileSystem->Open("/", fileName);
 #endif
        
@@ -108,6 +124,7 @@ AddrSpace::AddrSpace(OpenFile *executable)
         }
         else
             printf("%s swap zone opend successfully\n",fileName);
+        swapFile->Write((char *)&noffH, sizeof(noffH));
         
         if (noffH.code.size > 0) 
         {
@@ -116,19 +133,6 @@ AddrSpace::AddrSpace(OpenFile *executable)
                 noffH.code.virtualAddr, noffH.code.size);
             executable->ReadAt(&(tempBuffer[noffH.code.virtualAddr]),
                noffH.code.size, noffH.code.inFileAddr);
-            /*
-            int intraFileAddr = noffH.code.inFileAddr;
-            int offset = noffH.code.virtualAddr;
-            for(int i=0; i<noffH.code.size; i++)
-            {
-                executable->ReadAt(&(tempBuffer[offset]), 1, intraFileAddr);
-                intraFileAddr++;
-                offset++;
-            }
-            */
-            //swapFile->Write((char *)&noffH, sizeof(noffH));
-            //printf("len of tempBuffer is %d\n", strlen(tempBuffer));
-            //printf("Tempbuffer is %s\n", tempBuffer);
 
         }
         if (noffH.initData.size > 0) 
@@ -140,11 +144,11 @@ AddrSpace::AddrSpace(OpenFile *executable)
             executable->ReadAt(&(tempBuffer[noffH.initData.virtualAddr]),
                 noffH.initData.size, noffH.initData.inFileAddr);
         }
-        //printf("tempbuffer is %s\n", tempBuffer);
-        //swapFile->Write(tempBuffer, strlen(tempBuffer));
+    
     }
     else
     {
+        printf("clearMem is enough in AddrSpace\n");
         lessPageNum = numPages;
     }
     pageTable = new TranslationEntry[numPages];
@@ -159,9 +163,13 @@ AddrSpace::AddrSpace(OpenFile *executable)
 					// a separate page, we could set its 
 					// pages to be read-only
     pageTable[i].hitTimes = 0;
+    //printf("Entry[%d] is added, virtualPage is %d, physicalPage is %d\n", i, 
+    //    pageTable[i].virtualPage, pageTable[i].physicalPage);
     }
     for(;i<numPages;i++)
     {
+      //  printf("Entry[%d] is added, and not valid\n", i);
+        pageTable[i].virtualPage = i;
         pageTable[i].valid = FALSE;
         pageTable[i].use = FALSE;
         pageTable[i].hitTimes = 0;
@@ -178,13 +186,14 @@ AddrSpace::AddrSpace(OpenFile *executable)
    
     if(noffH.code.size < lessPageNum * PageSize)
     {
+        printf("in AddrSpace,  noffH.code.size < lessPageNum * PageSize\n");
         bytesToWrite = noffH.code.size;
 
     }
     else                    
     {
+        printf("in AddrSpace,  noffH.code.size >= lessPageNum * PageSize\n" );
         bytesToWrite = lessPageNum * PageSize;
-
 
     }
 
@@ -208,12 +217,15 @@ AddrSpace::AddrSpace(OpenFile *executable)
        
     }
     bytesToWrite = lessPageNum * PageSize - noffH.code.size;
+    printf("after noffH.code, bytesToWrite is %d now, lessPageNum is %d, noffH.code.size is %d\n", 
+        bytesToWrite, lessPageNum, noffH.code.size);
     if(bytesToWrite > 0)
     {
         if (noffH.initData.size > 0) {
+            printf("%d of noffH.initdata to write\n", noffH.initData.size);
         DEBUG('a', "Initializing data segment, at 0x%x, size %d\n", 
             noffH.initData.virtualAddr, noffH.initData.size);
-        intraFileAddr = noffH.code.inFileAddr;
+        intraFileAddr = noffH.initData.inFileAddr;
         for(i=0; i<bytesToWrite; i++)
         {
             virPageNum = (noffH.initData.virtualAddr + i) / PageSize;
@@ -222,54 +234,18 @@ AddrSpace::AddrSpace(OpenFile *executable)
             executable->ReadAt(&(machine->mainMemory[phyPageNum * PageSize + offSet]), 1, intraFileAddr);
             intraFileAddr++;
         }
+        printf("noffH.initData.virtualAddr is %d and inFileAddr is %d\n", 
+            noffH.initData.virtualAddr, noffH.initData.inFileAddr);
         }
     }
 
 
 
-    
-    /*
-    if (noffH.code.size > 0) {
-        DEBUG('a', "Initializing code segment, at 0x%x, size %d\n", 
-			noffH.code.virtualAddr, noffH.code.size);
-        intraFileAddr = noffH.code.inFileAddr;
-        for(i=0; i<noffH.code.size; i++)
-        {
-            virPageNum = (noffH.code.virtualAddr + i) / PageSize;
-            offSet = (noffH.code.virtualAddr + i) % PageSize;
-            phyPageNum = pageTable[virPageNum].physicalPage;
-            //printf("intraFileAddr is %d, virPageNum is %d, offSet is %d, phyPageNum is %d, place to read is %d\n", 
-              //  intraFileAddr, virPageNum, offSet, phyPageNum, phyPageNum * PageSize + offSet);
-            executable->ReadAt(&(machine->mainMemory[phyPageNum * PageSize + offSet]), 1, intraFileAddr);
-            intraFileAddr++;
-        }
-        //printf("noffH.code.size is %d\n", noffH.code.size);
-       
-    }
-
-
-    if (noffH.initData.size > 0) {
-        DEBUG('a', "Initializing data segment, at 0x%x, size %d\n", 
-			noffH.initData.virtualAddr, noffH.initData.size);
-        intraFileAddr = noffH.code.inFileAddr;
-        for(i=0; i<noffH.initData.size; i++)
-        {
-            virPageNum = (noffH.initData.virtualAddr + i) / PageSize;
-            offSet = (noffH.initData.virtualAddr + i) % PageSize;
-            phyPageNum = pageTable[virPageNum].physicalPage;
-            executable->ReadAt(&(machine->mainMemory[phyPageNum * PageSize + offSet]), 1, intraFileAddr);
-            intraFileAddr++;
-        }
-    }
-    */
-
-    
-
-   
-    //memoryBitmap->Print();
     
 
 }
+
+
 
 //----------------------------------------------------------------------
 // AddrSpace::~AddrSpace

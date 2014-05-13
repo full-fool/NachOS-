@@ -418,6 +418,6 @@ Thread::RestoreUserState()
 {
     for (int i = 0; i < NumTotalRegs; i++)
 	   machine->WriteRegister(i, userRegisters[i]);
-    printf("%s's user state restored!!!!!!!!!!!!!!!!!!!!!\n", currentThread->getName());
+    //printf("%s's user state restored!!!!!!!!!!!!!!!!!!!!!\n", currentThread->getName());
 }
 #endif

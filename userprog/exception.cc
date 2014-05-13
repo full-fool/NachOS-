@@ -66,7 +66,7 @@ ExceptionHandler(ExceptionType which)
         bool swapResult = machine->TlbSwap(addr, 1);
         if(!swapResult)         //means tlb swap failed, and we should load right physical pages from file
         {
-          //printf("must load pages from disk\n");
+          printf("must load pages from disk\n");
           machine->LoadPage(addr);
           printf("after load page, swap tlb again\n");
           swapResult =  machine->TlbSwap(addr, 1);
@@ -80,10 +80,20 @@ ExceptionHandler(ExceptionType which)
         int baseAddr = machine->ReadRegister(4);
         int readValue;
         int count = 0;
+        char fileName[30];
+        memset(fileName, 0, sizeof fileName);
+        for (int i = 0; i < 30; i++)
+        {
+          machine->ReadMem(baseAddr + i, 1, &readValue);
+          fileName[i] = (char)readValue;
+          if (readValue == 0)
+              break;
+        }
+        /*
         do{
           machine->ReadMem(baseAddr++, 1, &readValue);
           count++;
-        }while(*(char *)&readValue != '\0');
+        }while(readValue != 0);
         //printf("filename length is %d\n", count);
 
         baseAddr -= count;
@@ -93,7 +103,8 @@ ExceptionHandler(ExceptionType which)
           machine->ReadMem(baseAddr + i, 1, &readValue);
           fileName[i] = (char)readValue;
         }
-        //printf("file %s needs to be created\n", fileName);
+        */
+        printf("file %s needs to be created\n", fileName);
 #ifdef FILESYS_STUB
         fileSystem->Create(fileName, 128);
 #else 
@@ -104,7 +115,7 @@ ExceptionHandler(ExceptionType which)
     }
     else if(which == SyscallException && type == SC_Open)
     {
-#ifdef FILESYS_STUB
+//#ifdef FILESYS_STUB
       printf("syscall open called\n");
       int baseAddr = machine->ReadRegister(4);
       int readValue;
@@ -121,9 +132,10 @@ ExceptionHandler(ExceptionType which)
         machine->ReadMem(baseAddr + i, 1, &readValue);
         fileName[i] = (char)readValue;
       }
-      OpenFile *openfile = fileSystem->Open(fileName);
-      machine->WriteRegister(2, openfile->getFile());
-#endif
+      int retVal = fileSystem->SysCallOpen(fileName);
+      machine->WriteRegister(2, retVal);
+      //printf("!!!!!!!!!!!!!!!1in exception.cc SC_open, %d is written to reg2\n", retVal);
+//#endif
       machine->AddPC();
     }
     else if(which == SyscallException && type == SC_Close)
@@ -153,9 +165,10 @@ ExceptionHandler(ExceptionType which)
         machine->ReadMem(baseAddr + i, 1, &readValue);
         content[i] = (char)readValue;
       }
-      OpenFile *openfile = new OpenFile(fileId);
-      openfile->Write(content, size);
-      delete openfile;
+      fileSystem->SysCallWrite(content, size, fileId);
+      //OpenFile *openfile = new OpenFile(fileId);
+      //openfile->Write(content, size);
+      //delete openfile;
       machine->AddPC();
     }
     else if(which == SyscallException && type == SC_Read)
@@ -166,14 +179,17 @@ ExceptionHandler(ExceptionType which)
       int fileId = machine->ReadRegister(6);
       int count = 0;
       char *temp = new char[size];
-      OpenFile *openfile = new OpenFile(fileId);
-      count = openfile->Read(temp, size);
+      //OpenFile *openfile = new OpenFile(fileId);
+      //count = openfile->Read(temp, size);
+      count = fileSystem->SysCallRead(temp, size, fileId);
       for(int i=0; i<size; i++)
       {
         machine->WriteMem(baseAddr+i, 1, temp[i]);
       }
       machine->WriteRegister(2, count);
-      delete openfile;
+      //printf("!!!!!!!!!!!!!!!!!!in exception.cc SC_Read, %d is written to reg2\n", count);
+
+      //delete openfile;
       machine->AddPC();
     }
     else if(which == SyscallException && type == SC_Exec)

@@ -101,12 +101,23 @@ class FileSystem {
 
     bool changeDirectory(char *newPath);
 
+    int SysCallOpen(char *name);
+    
+    void SysCallClose(int id);
+    
+    void SysCallWrite(char *buffer, int Bytes, int id);
+    
+    int SysCallRead(char *buffer, int Bytes, int id);
+
   private:
    OpenFile* freeMapFile;		// Bit map of free disk blocks,
 					// represented as a file
    OpenFile* directoryFile;		// "Root" directory -- list of 
    char currentPath[100];
 					// file names, represented as a file
+   OpenFile* OpenFileQueue[10];
+   char OpenFileName[10][255];
+   int  OpenFileInUse[10];
 };
 
 #endif // FILESYS

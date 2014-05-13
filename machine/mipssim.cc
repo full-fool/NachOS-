@@ -116,10 +116,12 @@ Machine::OneInstruction(Instruction *instr)
     	printf("PC read on address %d failed\n", registers[PCReg]);
 		return;			// exception occurred
     }
-    //printf("instruction read successfully on address %d\n", registers[PCReg]);
+    //printf("instruction read successfully on address %d, PCReg is %d, raw is %d\n", 
+    //	registers[PCReg], PCReg, raw);
     instr->value = raw;
     instr->Decode();
-
+    //printf("rs = %d, rt = %d, rd = %d, opcode is %d\n", instr->rs, instr->rt, instr->rd, instr->opCode);
+    //printf("before process instr, now reg[2] is %d\n", registers[2]);
     if (DebugIsEnabled('m')) {
        struct OpString *str = &opStrings[instr->opCode];
 
@@ -164,6 +166,8 @@ Machine::OneInstruction(Instruction *instr)
 	break;
 	
       case OP_ADDU:
+    //printf("in ADDU, reg[rs] = %d, reg[rt] = %d, sum = %d, instr->rd = %d\n",
+	//	registers[instr->rs], registers[instr->rt ],registers[instr->rs] + registers[instr->rt], instr->rd);
 	registers[instr->rd] = registers[instr->rs] + registers[instr->rt];
 	break;
 	
@@ -291,13 +295,13 @@ Machine::OneInstruction(Instruction *instr)
       case OP_LW:
 
 	tmp = registers[instr->rs] + instr->extra;
-	printf("l291, temp = %d, instr->rs = %d, registers[instr->rs] = %d, instr->extra = %d\n",
-    	tmp, instr->rs, registers[instr->rs], instr->extra);
+	//printf("l291, temp = %d, instr->rs = %d, registers[instr->rs] = %d, instr->extra = %d\n",
+    //	tmp, instr->rs, registers[instr->rs], instr->extra);
 	if (tmp & 0x3) {
 	    RaiseException(AddressErrorException, tmp);
 	    return;
 	}
-	printf("l298, !machine->ReadMem(tmp, 4, &value)\n");
+	//printf("l298, !machine->ReadMem(tmp, 4, &value)\n");
 	if (!machine->ReadMem(tmp, 4, &value))
 	{
 	    return;
@@ -414,18 +418,23 @@ Machine::OneInstruction(Instruction *instr)
 	break;
 	
       case OP_SB:
+      printf("OP_SUB WriteMem\n");
 	if (!machine->WriteMem((unsigned) 
 		(registers[instr->rs] + instr->extra), 1, registers[instr->rt]))
 	    return;
 	break;
 	
       case OP_SH:
+      printf("OP_SH WriteMem\n");
 	if (!machine->WriteMem((unsigned) 
 		(registers[instr->rs] + instr->extra), 2, registers[instr->rt]))
 	    return;
 	break;
 	
       case OP_SLL:
+      //printf("in OP_SLL, reg[rt] = %d, instr->extra = %d, instr->rd = %d, result is %d\n",
+      //	registers[instr->rt], instr->extra, instr->rd, registers[instr->rt] << instr->extra);
+      //printf("in sll out, reg[2] is %d\n", registers[2]);
 	registers[instr->rd] = registers[instr->rt] << instr->extra;
 	break;
 	
@@ -502,6 +511,8 @@ Machine::OneInstruction(Instruction *instr)
 	break;
 	
       case OP_SW:
+      //printf("OP_SW WriteMem, instr->rs is %d, registers[instr->rs] = %d, instr->estra = %d\n", 
+      //	instr->rs, registers[instr->rs], instr->extra);
 	if (!machine->WriteMem((unsigned) 
 		(registers[instr->rs] + instr->extra), 4, registers[instr->rt]))
 	    return;
@@ -545,7 +556,7 @@ Machine::OneInstruction(Instruction *instr)
 	// The little endian/big endian swap code would
         // fail (I think) if the other cases are ever exercised.
 	ASSERT((tmp & 0x3) == 0);  
-	printf("l551, !machine->ReadMem(tmp, 4, &value)\n");
+	//printf("l551, !machine->ReadMem(tmp, 4, &value)\n");
 	if (!machine->ReadMem((tmp & ~0x3), 4, &value))
 	{
 	    return;
@@ -593,13 +604,22 @@ Machine::OneInstruction(Instruction *instr)
     // Now we have successfully executed the instruction.
     
     // Do any delayed load operation
+    //printf("at the 1 end of instruction, reg[2] = %d\n", registers[2]);
+
     DelayedLoad(nextLoadReg, nextLoadValue);
+    //printf("at the 2 end of instruction, reg[2] = %d\n", registers[2]);
     
     // Advance program counters.
     registers[PrevPCReg] = registers[PCReg];	// for debugging, in case we
 						// are jumping into lala-land
+    //printf("at the 3 end of instruction, reg[2] = %d\n", registers[2]);
+
     registers[PCReg] = registers[NextPCReg];
+    //printf("at the 4 end of instruction, reg[2] = %d\n", registers[2]);
+
     registers[NextPCReg] = pcAfter;
+    //printf("at the 5 end of instruction, reg[2] = %d\n", registers[2]);
+
 }
 
 //----------------------------------------------------------------------
@@ -613,10 +633,20 @@ Machine::OneInstruction(Instruction *instr)
 void
 Machine::DelayedLoad(int nextReg, int nextValue)
 {
+    //printf("reg[LoadReg] = %d, reg[reg[LoadReg]] = %d, reg[LoadValueReg] = %d\n", 
+    //	registers[LoadReg], registers[registers[LoadReg]], registers[LoadValueReg]);
+    //printf("in DelayedLoad 1, reg[2] = %d\n", registers[2]);
     registers[registers[LoadReg]] = registers[LoadValueReg];
+    //printf("in DelayedLoad 1, reg[2] = %d\n", registers[2]);
     registers[LoadReg] = nextReg;
+    //printf("in DelayedLoad 2, reg[2] = %d\n", registers[2]);
+
     registers[LoadValueReg] = nextValue;
+    //printf("in DelayedLoad 3, reg[2] = %d\n", registers[2]);
+
     registers[0] = 0; 	// and always make sure R0 stays zero.
+
+    //loadreg = 37, loadvaluereg=38
 }
 
 //----------------------------------------------------------------------
@@ -628,7 +658,7 @@ void
 Instruction::Decode()
 {
     OpInfo *opPtr;
-    
+    //printf("in Decode the value is %d\n", value);
     rs = (value >> 21) & 0x1f;
     rt = (value >> 16) & 0x1f;
     rd = (value >> 11) & 0x1f;

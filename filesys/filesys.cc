@@ -82,6 +82,13 @@ FileSystem::FileSystem(bool format)
 { 
     currentPath[0] = '/';
     currentPath[1] = '\0';
+    for(int i=0; i<10; i++)
+    {
+        OpenFileQueue[i] = NULL;
+        memset(OpenFileName[i], 0, sizeof OpenFileName[i]);
+        OpenFileInUse[i] = 0;
+    }
+
     DEBUG('f', "Initializing the file system.\n");
     if (format) {
         //currentPath = "/";
@@ -433,6 +440,68 @@ FileSystem::changeDirectory(char *newPath)
     delete directory;
     return FALSE;
 
+}
+
+
+int
+FileSystem::SysCallOpen(char *filename)
+{
+    int id;
+    for(id=0;id<10;id++)
+    {
+        if(OpenFileInUse[id]==0)
+        {
+            OpenFileInUse[id] = 1;
+            strcpy(OpenFileName[id], filename);
+            break;
+        }
+    }
+    if(id==10)
+    {
+        printf("Too much nachos files opened, please close some of them\n");
+        return -1;
+    }
+    if((OpenFileQueue[id] = Open(filename)) == NULL) {
+        printf("Perf test: unable to open file %s\n", filename);
+        return -1;
+        }
+    return id;
+
+}
+
+void
+FileSystem::SysCallClose(int id)
+{
+        OpenFileInUse[id] = 0;
+        OpenFileQueue[id] = NULL;
+
+}
+
+void 
+FileSystem::SysCallWrite(char *buffer, int Bytes, int id)
+{
+    //OpenFile *openfile = new OpenFile(fileId);
+    //openfile->Write(content, size);
+    if(OpenFileInUse[id] == 0)
+    {
+        printf("the write file %d is not opened yet\n", id);
+        return;
+    }
+    OpenFileQueue[id]->Write(buffer, Bytes);
+
+    
+}
+int
+FileSystem::SysCallRead(char *buffer, int Bytes, int id)
+{
+    if(OpenFileInUse[id] == 0)
+    {
+        printf("the read file %d is not opened yet\n", id);
+        return -1;
+    }
+    int numBytes = 0;
+    numBytes = OpenFileQueue[id]->Read(buffer, Bytes);
+    return numBytes;
 }
 
 
