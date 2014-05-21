@@ -34,12 +34,14 @@ class AddrSpace {
     OpenFile *swapFile;
     int getNumPages(){return numPages;};
     void Suspend();
+    void Print();
 
   private:
     TranslationEntry *pageTable;	// Assume linear page table translation
 					// for now!
     unsigned int numPages;		// Number of pages in the virtual 
 					// address space
+    char userFileName[128];
 };
 
 #endif // ADDRSPACE_H

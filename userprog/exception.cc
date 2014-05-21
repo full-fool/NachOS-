@@ -24,6 +24,7 @@
 #include "copyright.h"
 #include "system.h"
 #include "syscall.h"
+#include "noff.h"
 
 //----------------------------------------------------------------------
 // ExceptionHandler
@@ -61,18 +62,11 @@ ExceptionHandler(ExceptionType which)
     }
     else if(which == PageFaultException)
     {
-        int addr = machine->ReadRegister(BadVAddrReg);
-        printf("PageFaultException happended here on virtual address %d\n", addr);
-        bool swapResult = machine->TlbSwap(addr, 1);
-        if(!swapResult)         //means tlb swap failed, and we should load right physical pages from file
-        {
-          printf("must load pages from disk\n");
-          machine->LoadPage(addr);
-          printf("after load page, swap tlb again\n");
-          swapResult =  machine->TlbSwap(addr, 1);
-          ASSERT(swapResult);
 
-        }
+        int addr = machine->ReadRegister(BadVAddrReg);
+        bool swapResult = machine->TlbSwap(addr, 1);
+        ASSERT(swapResult);
+        
     }
     else if(which == SyscallException && type == SC_Create)
     {
@@ -133,6 +127,7 @@ ExceptionHandler(ExceptionType which)
         fileName[i] = (char)readValue;
       }
       int retVal = fileSystem->SysCallOpen(fileName);
+      printf("in syscall open, fileId returned is %d\n", retVal);
       machine->WriteRegister(2, retVal);
       //printf("!!!!!!!!!!!!!!!1in exception.cc SC_open, %d is written to reg2\n", retVal);
 //#endif
@@ -142,7 +137,10 @@ ExceptionHandler(ExceptionType which)
     {
       printf("syscall close called\n");
       int fileId = machine->ReadRegister(4);
-      Close(fileId);
+      fileSystem->SysCallClose(fileId);
+      //Close(fileId);
+      printf("syscall close return\n");
+
       machine->AddPC();
     }
     else if(which == SyscallException && type == SC_Write)
@@ -151,6 +149,7 @@ ExceptionHandler(ExceptionType which)
       int baseAddr = machine->ReadRegister(4);
       int size = machine->ReadRegister(5);
       int fileId = machine->ReadRegister(6);
+      printf("in write syscall, size is %d, fileId is %d\n", size, fileId);
       int readValue;
       int count = 0;
       do{
@@ -166,6 +165,8 @@ ExceptionHandler(ExceptionType which)
         content[i] = (char)readValue;
       }
       fileSystem->SysCallWrite(content, size, fileId);
+      //printf("after call sysclalwrite\n");
+
       //OpenFile *openfile = new OpenFile(fileId);
       //openfile->Write(content, size);
       //delete openfile;
@@ -221,14 +222,19 @@ ExceptionHandler(ExceptionType which)
         machine->AddPC();
         return;
       }
+      printf("in exec, %s opened successfully\n", fileName);
+      delete fileName;
       space = new AddrSpace(executable);
       currentThread->space = space;
-      space->InitRegisters();
+      delete executable; 
+      space->InitRegisters(); 
       space->RestoreState();
-      delete space;
+      machine->cleanTlb();     //very very important!!!!!!!!!!!!!
+      printf("!!!!!!!!!!!!!!!!!exec here!!!!\n");
+
+
       machine->Run();
       ASSERT(FALSE);
-
 
     }
 

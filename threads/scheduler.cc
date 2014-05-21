@@ -137,6 +137,7 @@ Scheduler::Run (Thread *nextThread)
 #ifdef USER_PROGRAM
     if (currentThread->space != NULL) {		// if there is an address space
         currentThread->RestoreUserState();     // to restore, do it.
+        //printf("in scheduler run, starts to RestoreState\n");
 	currentThread->space->RestoreState();
     }
 #endif

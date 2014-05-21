@@ -254,14 +254,15 @@ Directory::Print()
         //printf("now is is %d\n", i);
         if (table[i].inUse) 
         {
-            printf("and now table[%d] is inUse\n", i);
+            //printf("and now table[%d] is inUse\n", i);
             printf("Name: %s\n", table[i].name);
             printf("Path: %s\n", table[i].path);
             printf("Sector: %d\n", table[i].sector);
             //printf("Name: %s, Path: %s, Sector: %d\n", table[i].name, table[i].path, table[i].sector);
             printf("createTime: %s, lastVisited: %s, lastModified %s\n", 
                 table[i].createTime, table[i].lastVisited, table[i].lastModified);
-            //hdr->FetchFrom(table[i].sector);
+            hdr->FetchFrom(table[i].sector);
+            printf("size is %d\n", hdr->getNumBytes());
             //hdr->Print();
         }
     }

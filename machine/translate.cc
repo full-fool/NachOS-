@@ -92,21 +92,17 @@ Machine::ReadMem(int addr, int size, int *value)
     int physicalAddress;
     
     DEBUG('a', "Reading VA 0x%x, size %d\n", addr, size);
-    //printf("in ReadMem, %d addr is needed to be read\n", addr);
+    //printf("in ReadMem, %d virtual address is needed to be read\n", addr);
     exception = Translate(addr, &physicalAddress, size, FALSE);
+	
     if (exception != NoException) 
     {
+		ASSERT(exception == PageFaultException);
 		machine->RaiseException(exception, addr);
-		if(exception == PageFaultException)
-		{
-			//printf("exception is pagefault and tlb has been swapped\n");
-			exception = Translate(addr, &physicalAddress, size, FALSE);
-			ASSERT(exception == NoException);
-			//machine->RaiseException(exception, addr);
-		}
-		else
-			return FALSE;
+		exception = Translate(addr, &physicalAddress, size, FALSE);
+		ASSERT(exception == NoException);
     }
+    //printf("in ReadMem, %d virtual address and %d physical address\n", addr, physicalAddress);
     switch (size) {
       case 1:
       //printf("memread char is %c\n", machine->mainMemory[physicalAddress]);
@@ -126,6 +122,7 @@ Machine::ReadMem(int addr, int size, int *value)
 
       default: ASSERT(FALSE);
     }
+    //printf("in readmem, return number is %d\n", *value);
     
     DEBUG('a', "\tvalue read = %8.8x\n", *value);
     return (TRUE);
@@ -154,19 +151,18 @@ Machine::WriteMem(int addr, int size, int value)
     //printf("in WriteMem, %d addr is needed to be write\n", addr);
 
     exception = Translate(addr, &physicalAddress, size, TRUE);
-    if (exception != NoException) 
-    {
-		machine->RaiseException(exception, addr);
-		if(exception == PageFaultException)
-		{
-    		exception = Translate(addr, &physicalAddress, size, TRUE);
-		}
-		else
-		{
-			return FALSE;
-		}
 
+ 	if (exception != NoException) 
+    {
+		ASSERT(exception == PageFaultException);
+		machine->RaiseException(exception, addr);
+		exception = Translate(addr, &physicalAddress, size, TRUE);
+		ASSERT(exception == NoException);
     }
+   
+   
+    //printf("in WriteMem, address is translated and physicalAddress is %d now\n", physicalAddress);
+
     switch (size) {
       case 1:
 	machine->mainMemory[physicalAddress] = (unsigned char) (value & 0xff);
@@ -230,6 +226,7 @@ Machine::Translate(int virtAddr, int* physAddr, int size, bool writing)
     
     if (tlb == NULL) 
     {		// => page table => vpn is index into table
+    	ASSERT(FALSE);
 		if (vpn >= pageTableSize) 
 		{
 	    	DEBUG('a', "virtual page # %d too large for page table size %d!\n", 
@@ -246,7 +243,6 @@ Machine::Translate(int virtAddr, int* physAddr, int size, bool writing)
     } 
     else 
     {
-        //printf("reach here on tlb find\n");
         for (entry = NULL, i = 0; i < TLBSize; i++)
         {
     	    if (tlb[i].valid && (tlb[i].virtualPage == vpn)) 
@@ -287,7 +283,10 @@ Machine::Translate(int virtAddr, int* physAddr, int size, bool writing)
     }
     entry->use = TRUE;		// set the use, dirty bits
     if (writing)
-	entry->dirty = TRUE;
+    {
+		entry->dirty = TRUE;
+		pageTable[entry->virtualPage].dirty = TRUE;
+    }
     *physAddr = pageFrame * PageSize + offset;
     ASSERT((*physAddr >= 0) && ((*physAddr + size) <= MemorySize));
     DEBUG('a', "phys addr = 0x%x\n", *physAddr);

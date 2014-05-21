@@ -284,7 +284,7 @@ FileSystem::Open(char *targetPath, char *name)
         directory->WriteBack(directoryFile);
         openFile = new OpenFile(sector);    // name was found in directory 
         directory->addThread(targetPath, name);
-        printf("in FileSystem::open, sector found and number is %d\n", sector);
+        printf("in FileSystem::open, hdr sector found and number is %d\n", sector);
         delete directory;
 
     }
@@ -482,6 +482,7 @@ FileSystem::SysCallWrite(char *buffer, int Bytes, int id)
 {
     //OpenFile *openfile = new OpenFile(fileId);
     //openfile->Write(content, size);
+    printf("OpenFileInUse[%d] is in use\n", id);
     if(OpenFileInUse[id] == 0)
     {
         printf("the write file %d is not opened yet\n", id);

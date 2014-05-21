@@ -220,6 +220,8 @@ Thread::Yield ()
             printf("thread changes here from %s to %s!!!!!!!!!!!!!!!!!!!\n", this->getName(), nextThread->getName());
             scheduler->ReadyToRun(this);
             //printf("%s is in ready list now\n", this->getName());
+            
+            printf("in thread::yield call scheduler->run()\n");
             scheduler->Run(nextThread);
             //printf("%s is in running now\n", nextThread->getName());
             //printf("%s yield to %s\n",this->getName(), nextThread->getName() );
@@ -266,7 +268,7 @@ Thread::Sleep ()
     status = BLOCKED;
     while ((nextThread = scheduler->FindNextToRun()) == NULL)
 	interrupt->Idle();	// no one to run, wait for an interrupt
-        
+    //printf("in thread::sleep call scheduler->run()\n");  
     scheduler->Run(nextThread); // returns when we've been signalled
 }
 
@@ -284,7 +286,7 @@ Thread::Suspend()
     }
     while ((nextThread = scheduler->FindNextToRun()) == NULL)
     interrupt->Idle();  // no one to run, wait for an interrupt
-        
+    printf("in thread::suspend call scheduler->run()\n");
     scheduler->Run(nextThread); // returns when we've been signalled
 
 

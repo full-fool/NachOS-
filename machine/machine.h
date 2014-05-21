@@ -148,6 +148,7 @@ class Machine {
     bool TlbSwap(int virtualAddr, int choose);         //to swap tlb entry
     bool LoadPage(int virtualAddr);
     bool AddPC();                   //to move the PC
+    void cleanTlb();
 
 
 // Data structures -- all of these are accessible to Nachos kernel code.

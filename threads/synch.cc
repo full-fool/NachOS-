@@ -68,6 +68,7 @@ Semaphore::P()
     
     while (value == 0) { 			// semaphore not available
 	queue->Append((void *)currentThread);	// so go to sleep
+    //printf("in semaphore, thread starts to sleep\n");
 	currentThread->Sleep();
     } 
     value--; 					// semaphore available, 

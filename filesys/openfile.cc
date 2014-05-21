@@ -18,8 +18,9 @@
 #include "directory.h"
 #ifdef HOST_SPARC
 #include <strings.h>
-#endif
 
+#endif
+#include <stdio.h>
 #define NumDirEntries       10
 
 //----------------------------------------------------------------------
@@ -35,6 +36,7 @@ OpenFile::OpenFile(int sector)
     hdrSector = sector;
     hdr = new FileHeader;
     hdr->FetchFrom(sector);
+    //printf("in openfile::openfile, hdr set successfully\n");
    // printf("in OpenFile::OpenFile, the sector number is %d and situation is \n", hdr->getSector());
     //hdr->PrintSectors();
     seekPosition = 0;
@@ -123,8 +125,9 @@ OpenFile::Write(char *into, int numBytes)
 int
 OpenFile::ReadAt(char *into, int numBytes, int position)
 {
-    //printf("call readat here in .cc\n");
     int fileLength = hdr->FileLength();
+    //printf("call readat here in .cc\n");
+
     //printf("in OpenFile::ReadAt, the fileLength is %d and hdrSector is %d\n", fileLength, hdrSector);
     //hdr->PrintSectors();
     int i, firstSector, lastSector, numSectors;
@@ -136,16 +139,23 @@ OpenFile::ReadAt(char *into, int numBytes, int position)
 	numBytes = fileLength - position;
     DEBUG('f', "Reading %d bytes at %d, from file of length %d.\n", 	
 			numBytes, position, fileLength);
-
     firstSector = divRoundDown(position, SectorSize);
     lastSector = divRoundDown(position + numBytes - 1, SectorSize);
     numSectors = 1 + lastSector - firstSector;
 
     // read in all the full and partial sectors that we need
+    //printf("in readAt, before buf new, numSectors is %d and SectorSize is %d, numSectors*SectorSize is %d\n", 
+    //    numSectors, SectorSize, numSectors * SectorSize);
+   
     buf = new char[numSectors * SectorSize];
+
     for (i = firstSector; i <= lastSector; i++)	
+    {
         synchDisk->ReadSector(hdr->ByteToSector(i * SectorSize), 
-					&buf[(i - firstSector) * SectorSize]);
+                    &buf[(i - firstSector) * SectorSize]);   
+    }
+        
+
 
     // copy the part we want
     bcopy(&buf[position - (firstSector * SectorSize)], into, numBytes);

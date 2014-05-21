@@ -166,8 +166,11 @@ Interrupt::OneTick()
     ChangeLevel(IntOn, IntOff);		// first, turn off interrupts
 					// (interrupt handlers run with
 					// interrupts disabled)
+    //printf("in onetick, after changelevel before CheckIfDue\n");
     while (CheckIfDue(FALSE))		// check for pending interrupts
 	;
+    //printf("in onetick, after CheckIfDue\n");
+
     ChangeLevel(IntOff, IntOn);		// re-enable interrupts
     if (yieldOnReturn) {		// if the timer device handler asked 
 					// for a context switch, ok to do it now

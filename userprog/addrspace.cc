@@ -61,7 +61,10 @@ SwapHeader (NoffHeader *noffH)
 //----------------------------------------------------------------------
 
 
-//new version of addrspace
+
+
+//old version of AddrSpace is stored in lab syscall.
+
 AddrSpace::AddrSpace(OpenFile *executable)
 {
     NoffHeader noffH;
@@ -69,52 +72,113 @@ AddrSpace::AddrSpace(OpenFile *executable)
 
     executable->ReadAt((char *)&noffH, sizeof(noffH), 0);
     if ((noffH.noffMagic != NOFFMAGIC) && 
-		(WordToHost(noffH.noffMagic) == NOFFMAGIC))
-    	SwapHeader(&noffH);
+        (WordToHost(noffH.noffMagic) == NOFFMAGIC))
+        SwapHeader(&noffH);
     ASSERT(noffH.noffMagic == NOFFMAGIC);
 
-// how big is address space?
     size = noffH.code.size + noffH.initData.size + noffH.uninitData.size 
-			+ UserStackSize;	// we need to increase the size
-						// to leave room for the stack
+            + UserStackSize;    // we need to increase the size
     printf("code: size is %d, virtualAddr is %d, inFileAddr is %d\n", 
         noffH.code.size, noffH.code.virtualAddr, noffH.code.inFileAddr);
     printf("initData: size is %d, virtualAddr is %d, inFileAddr is %d\n", 
         noffH.initData.size, noffH.initData.virtualAddr, noffH.initData.inFileAddr);
     printf("uninitData: size is %d, virtualAddr is %d, inFileAddr is %d\n",
         noffH.uninitData.size, noffH.uninitData.virtualAddr, noffH.uninitData.inFileAddr);
-    
-
-
-    //printf("code is %d, initData is %d, uninitData is %d, UserStackSize is %d\n", 
-    //    noffH.code.size, noffH.initData.size, noffH.uninitData.size, UserStackSize);
     numPages = divRoundUp(size, PageSize);
     printf("file size is %d, numPages is %d\n", size, numPages);    
     size = numPages * PageSize;
     printf("new size is %d\n", size);
     DEBUG('a', "Initializing address space, num pages %d, size %d\n", 
-					numPages, size);
+                    numPages, size);
         // first, set up the translation 
 
     int intraFileAddr, virPageNum, offSet, phyPageNum;
-    int bytesToWrite;
     int clearMem = memoryBitmap->NumClear();
-    int lessPageNum;
 
-    //on this condition, we should write info on swap zone since there is no enough memory
-    if(clearMem < numPages)   
+    if(numPages <= clearMem)
     {
-        printf("clearMem is not enough in AddrSpace!\n");
-        lessPageNum = clearMem;
-        char tempBuffer[size + 10];
+        printf("in Addrspace, numPages is %d, clearMem is %d, so no need to create swapfile\n", 
+            numPages, clearMem);
+        pageTable = new TranslationEntry[numPages];
+        for (i = 0; i < numPages; i++) 
+        {
+            pageTable[i].virtualPage = i;   // for now, virtual page # = phys page #
+            pageTable[i].physicalPage = memoryBitmap->Find();
+            pageTable[i].valid = TRUE;
+            pageTable[i].use = FALSE;
+            pageTable[i].dirty = FALSE;
+            pageTable[i].readOnly = FALSE; 
+            pageTable[i].hitTimes = 0;
+            //printf("pageTable[%d] is valid, physicalPage num is %d\n", i, pageTable[i].physicalPage);
+
+        }
+        if (noffH.code.size > 0) 
+        {
+            intraFileAddr = noffH.code.inFileAddr;
+            for(i=0; i<noffH.code.size; i++)
+            {
+                virPageNum = (noffH.code.virtualAddr + i) / PageSize;
+                offSet = (noffH.code.virtualAddr + i) % PageSize;
+                phyPageNum = pageTable[virPageNum].physicalPage;
+                executable->ReadAt(&(machine->mainMemory[phyPageNum * PageSize + offSet]), 1, intraFileAddr);
+                intraFileAddr++;
+            }
+        }
+
+
+        if (noffH.initData.size > 0) 
+        {
+            intraFileAddr = noffH.initData.inFileAddr;
+            for(i=0; i<noffH.initData.size; i++)
+            {
+                virPageNum = (noffH.initData.virtualAddr + i) / PageSize;
+                offSet = (noffH.initData.virtualAddr + i) % PageSize;
+                phyPageNum = pageTable[virPageNum].physicalPage;
+                executable->ReadAt(&(machine->mainMemory[phyPageNum * PageSize + offSet]), 1, intraFileAddr);
+                intraFileAddr++;
+            }
+        }
+        return;
+
+    }
+    //on this condition, we should write info on swap zone since there is no enough memory
+    else 
+    {
+        printf("in Addrspace, clearMem is %d, numPages is %d, so not enough!\n", clearMem, numPages);
+        pageTable = new TranslationEntry[numPages];
+        for (i = 0; i < numPages; i++) 
+        {
+            pageTable[i].virtualPage = i;   // for now, virtual page # = phys page #
+            if(i < clearMem)
+            {
+                pageTable[i].physicalPage = memoryBitmap->Find();
+                pageTable[i].valid = TRUE;
+                //printf("in AddrSpace, allocated pageTable[%d].physicalPage is %d, valid\n", 
+                //   i, pageTable[i].physicalPage);
+            }
+            else
+            {
+                pageTable[i].physicalPage = -1;
+                pageTable[i].valid = FALSE;
+                //printf("in AddrSpace, allocated pageTable[%d].physicalPage is -1, not valid\n", 
+                //    i);
+            }
+            pageTable[i].use = FALSE;
+            pageTable[i].dirty = FALSE;
+            pageTable[i].readOnly = FALSE; 
+            pageTable[i].hitTimes = 0;
+           
+        }
+
         char *fileName = currentThread->getName();
-#ifdef FILESYS_STUB 
-        fileSystem->Create(fileName, size);
+        bool createSuccess = FALSE;
+    #ifdef FILESYS_STUB 
+        createSuccess = fileSystem->Create(fileName, size);
         swapFile = fileSystem->Open(fileName);
-#else
-        fileSystem->Create(fileName, size, 'f', "/");
+    #else
+        createSuccess = fileSystem->Create(fileName, size, 'f', "/");
         swapFile = fileSystem->Open("/", fileName);
-#endif
+    #endif
        
         if(swapFile == NULL)
         {
@@ -122,128 +186,62 @@ AddrSpace::AddrSpace(OpenFile *executable)
             interrupt->Halt();
             return;
         }
-        else
-            printf("%s swap zone opend successfully\n",fileName);
-        swapFile->Write((char *)&noffH, sizeof(noffH));
         
-        if (noffH.code.size > 0) 
+        if(createSuccess)
         {
-            printf("noffh code size is %d and virtualAddr is %d\n", noffH.code.size, noffH.code.virtualAddr);
-            DEBUG('a', "Initializing code segment, at 0x%x, size %d\n", 
-                noffH.code.virtualAddr, noffH.code.size);
-            executable->ReadAt(&(tempBuffer[noffH.code.virtualAddr]),
-               noffH.code.size, noffH.code.inFileAddr);
-
-        }
-        if (noffH.initData.size > 0) 
-        {
-            printf("noffh initdata size is %d\n", noffH.initData.size);
+            char *tempBuffer = new char[1]; 
+            tempBuffer[0] = 0;
+            int amountRead = 0;
+            for(i=0; i<size; i++)
+                swapFile->Write(&(tempBuffer[0]), 1);
+            if (noffH.code.size > 0) 
+            {
+                intraFileAddr = noffH.code.inFileAddr;
+                for(i=0; i<noffH.code.size; i++)
+                {
+                    virPageNum = (noffH.code.virtualAddr + i) / PageSize;
+                    offSet = (noffH.code.virtualAddr + i) % PageSize;
+                    if(pageTable[virPageNum].valid)
+                    {
+                        //printf("pageTable[%d] is valid, so code write in\n", virPageNum);
+                        phyPageNum = pageTable[virPageNum].physicalPage;
+                        executable->ReadAt(&(machine->mainMemory[phyPageNum * PageSize + offSet]), 
+                            1, intraFileAddr);
+                    }
+                    executable->ReadAt(&(tempBuffer[0]), 1, intraFileAddr);
+                    swapFile->WriteAt(&(tempBuffer[0]), 1, noffH.code.virtualAddr+i);
+                    intraFileAddr++;
+                }
+            }
+            if (noffH.initData.size > 0) 
+            {
+                intraFileAddr = noffH.initData.inFileAddr;
+                for(i=0; i<noffH.initData.size; i++)
+                {
+                    virPageNum = (noffH.initData.virtualAddr + i) / PageSize;
+                    offSet = (noffH.initData.virtualAddr + i) % PageSize;
+                    if(pageTable[virPageNum].valid)
+                    {
+                        printf("pageTable[%d] is valid, so initData write in\n", virPageNum);
+                        phyPageNum = pageTable[virPageNum].physicalPage;
+                        executable->ReadAt(&(machine->mainMemory[phyPageNum * PageSize + offSet]), 
+                            1, intraFileAddr);
+                    }
+                    executable->ReadAt(&(tempBuffer[0]), 1, intraFileAddr);
+                    swapFile->WriteAt(&(tempBuffer[0]), 1, noffH.initData.virtualAddr+i);
+                    intraFileAddr++;
+                }
+            }
             
-            DEBUG('a', "Initializing data segment, at 0x%x, size %d\n", 
-                noffH.initData.virtualAddr, noffH.initData.size);
-            executable->ReadAt(&(tempBuffer[noffH.initData.virtualAddr]),
-                noffH.initData.size, noffH.initData.inFileAddr);
+
+           
+            delete tempBuffer;  
         }
     
     }
-    else
-    {
-        printf("clearMem is enough in AddrSpace\n");
-        lessPageNum = numPages;
-    }
-    pageTable = new TranslationEntry[numPages];
-    for (i = 0; i < lessPageNum; i++) {
-	pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
-	pageTable[i].physicalPage = memoryBitmap->Find();
-	//pageTable[i].physicalPage = i;
-    pageTable[i].valid = TRUE;
-	pageTable[i].use = FALSE;
-	pageTable[i].dirty = FALSE;
-	pageTable[i].readOnly = FALSE;  // if the code segment was entirely on 
-					// a separate page, we could set its 
-					// pages to be read-only
-    pageTable[i].hitTimes = 0;
-    //printf("Entry[%d] is added, virtualPage is %d, physicalPage is %d\n", i, 
-    //    pageTable[i].virtualPage, pageTable[i].physicalPage);
-    }
-    for(;i<numPages;i++)
-    {
-      //  printf("Entry[%d] is added, and not valid\n", i);
-        pageTable[i].virtualPage = i;
-        pageTable[i].valid = FALSE;
-        pageTable[i].use = FALSE;
-        pageTable[i].hitTimes = 0;
-    }
-
-
-
-    
-// zero out the entire address space, to zero the unitialized data segment 
-// and the stack segment
-    //bzero(machine->mainMemory, size);
-
-// then, copy in the code and data segments into memory
-   
-    if(noffH.code.size < lessPageNum * PageSize)
-    {
-        printf("in AddrSpace,  noffH.code.size < lessPageNum * PageSize\n");
-        bytesToWrite = noffH.code.size;
-
-    }
-    else                    
-    {
-        printf("in AddrSpace,  noffH.code.size >= lessPageNum * PageSize\n" );
-        bytesToWrite = lessPageNum * PageSize;
-
-    }
-
-    if (noffH.code.size > 0) {
-        DEBUG('a', "Initializing code segment, at 0x%x, size %d\n", 
-            noffH.code.virtualAddr, noffH.code.size);
-        intraFileAddr = noffH.code.inFileAddr;
-        //printf("infileaddr is %d and virtualAddr is %d\n", intraFileAddr, noffH.code.virtualAddr);
-        for(i=0; i<bytesToWrite; i++)
-        {
-            virPageNum = (noffH.code.virtualAddr + i) / PageSize;
-            offSet = (noffH.code.virtualAddr + i) % PageSize;
-            phyPageNum = pageTable[virPageNum].physicalPage;
-            //printf("intraFileAddr is %d, virPageNum is %d, offSet is %d, phyPageNum is %d, place to read is %d\n", 
-              //  intraFileAddr, virPageNum, offSet, phyPageNum, phyPageNum * PageSize + offSet);
-            executable->ReadAt(&(machine->mainMemory[phyPageNum * PageSize + offSet]), 1, intraFileAddr);
-            intraFileAddr++;
-            //printf("main memory size is now %d\n", strlen(machine->mainMemory));
-        }
-        //printf("noffH.code.size is %d\n", noffH.code.size);
-       
-    }
-    bytesToWrite = lessPageNum * PageSize - noffH.code.size;
-    printf("after noffH.code, bytesToWrite is %d now, lessPageNum is %d, noffH.code.size is %d\n", 
-        bytesToWrite, lessPageNum, noffH.code.size);
-    if(bytesToWrite > 0)
-    {
-        if (noffH.initData.size > 0) {
-            printf("%d of noffH.initdata to write\n", noffH.initData.size);
-        DEBUG('a', "Initializing data segment, at 0x%x, size %d\n", 
-            noffH.initData.virtualAddr, noffH.initData.size);
-        intraFileAddr = noffH.initData.inFileAddr;
-        for(i=0; i<bytesToWrite; i++)
-        {
-            virPageNum = (noffH.initData.virtualAddr + i) / PageSize;
-            offSet = (noffH.initData.virtualAddr + i) % PageSize;
-            phyPageNum = pageTable[virPageNum].physicalPage;
-            executable->ReadAt(&(machine->mainMemory[phyPageNum * PageSize + offSet]), 1, intraFileAddr);
-            intraFileAddr++;
-        }
-        printf("noffH.initData.virtualAddr is %d and inFileAddr is %d\n", 
-            noffH.initData.virtualAddr, noffH.initData.inFileAddr);
-        }
-    }
-
-
-
-    
 
 }
+
 
 
 
@@ -257,7 +255,10 @@ AddrSpace::~AddrSpace()
    
    for(int i=0; i<numPages; i++)
    {
-        memoryBitmap->Clear(pageTable[i].physicalPage);
+        if(pageTable[i].valid)
+        {
+            memoryBitmap->Clear(pageTable[i].physicalPage);
+        }
    }
    
    delete pageTable;
@@ -294,6 +295,7 @@ AddrSpace::InitRegisters()
    // accidentally reference off the end!
     machine->WriteRegister(StackReg, numPages * PageSize - 16);
     DEBUG('a', "Initializing stack register to %d\n", numPages * PageSize - 16);
+    //printf("in addrspace initregisters, successfully returned\n");
 }
 
 //----------------------------------------------------------------------
@@ -319,7 +321,12 @@ void AddrSpace::RestoreState()
 {
     machine->pageTable = pageTable;
     machine->pageTableSize = numPages;
-    //printf("address space restored!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+
+    // printf("in restorestate, the new pageTable situation is :\n");
+    // printf("there are %d table entries in all\n", numPages);
+    // for(int i=0; i< machine->pageTableSize; i++)
+    //     printf("virtualPage num is %d, physicalPage num is %d\n", i, machine->pageTable[i].physicalPage);
+    // //printf("address space restored!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 }
 
 int 
@@ -340,3 +347,13 @@ AddrSpace::Suspend()
         }
     }
 }
+
+void 
+AddrSpace::Print()
+{
+    printf("in this AddrSpace, the numPages is %d\n", numPages);
+    for(int i=0; i<numPages; i++)
+        printf("pageTable[%d] virtualPage is %d, physicalPage is %d\n", 
+            i, pageTable[i].virtualPage, pageTable[i].physicalPage);
+}
+

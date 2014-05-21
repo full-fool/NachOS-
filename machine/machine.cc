@@ -62,6 +62,7 @@ Machine::Machine(bool debug)
     //memset(mainMemory, 0, sizeof mainMemory);
     for (i = 0; i < MemorySize; i++)
       	mainMemory[i] = 0;
+    //printf("memory is initialized and MemorySize is %d\n", MemorySize);
 //#ifdef USE_TLB
     tlb = new TranslationEntry[TLBSize];
     for (i = 0; i < TLBSize; i++)
@@ -69,6 +70,7 @@ Machine::Machine(bool debug)
         tlb[i].valid = FALSE;
         tlb[i].hitTimes = 0;
         tlb[i].order = i;
+        tlb[i].dirty = FALSE;
     }
     pageTable = NULL;
 //#else	// use linear page table
@@ -106,7 +108,7 @@ void
 Machine::RaiseException(ExceptionType which, int badVAddr)
 {
     DEBUG('m', "Exception: %s\n", exceptionNames[which]);
-    
+    //printf("in RaiseException, exceptiontype is %d and badVAddr is %d\n", which, badVAddr);
 //  ASSERT(interrupt->getStatus() == UserMode);
     registers[BadVAddrReg] = badVAddr;
     DelayedLoad(0, 0);			// finish anything in progress
@@ -221,47 +223,58 @@ void Machine::WriteRegister(int num, int value)
 
 bool Machine::TlbSwap(int virtualAddr, int choose)
 {
-    //printf("tlb swap happened here on virtualAddr %d and algorithm %d\n", virtualAddr, choose);
+    //printf("tlb swap happened here on virtualAddr %d\n", virtualAddr);
     ASSERT(tlb != NULL);
     int vpn = (unsigned) virtualAddr / PageSize;
+    ASSERT(vpn < pageTableSize);
+    if(pageTable[vpn].valid == FALSE)
+    {
+        LoadPage(virtualAddr);
+    }
+    ASSERT(pageTable[vpn].valid == TRUE);
 
     if(choose == 1)
     {
         int minHit = 2147483647;
         int minNum = 0;
-
         for(int i=0; i<TLBSize; i++)
         {
+            //printf("in tlbswap, tlb[%d] hitTimes is %d\n", i, tlb[i].hitTimes);
             if(tlb[i].hitTimes < minHit)
             {
                 minHit = tlb[i].hitTimes;
                 minNum = i;
             }
         }
-        if(vpn > (int)pageTableSize)
+       
+        ASSERT(minNum >= 0 && minNum < TLBSize);
+        
+        for (int i = 0; i < TLBSize; i++)
         {
-            printf("vpn:%d > pageTableSize, tlb swap failed\n", vpn);
-            return false;
+            if (tlb[i].physicalPage == pageTable[vpn].physicalPage)
+            {
+                tlb[i].hitTimes = 0;
+                tlb[i].valid = FALSE;
+            }
         }
-        if(pageTable[vpn].valid == FALSE)
-        {
-            printf("pageTable entry is invalid, tlb swap failed\n");
-            return false;
-        }
+        
+            
 
         tlb[minNum].virtualPage = vpn;
 
         tlb[minNum].physicalPage = pageTable[vpn].physicalPage;
-        printf("tlb[%d] is swapped out, new vpn is %d and new physicalPage is %d\n", minNum, vpn, 
-            tlb[minNum].physicalPage);
-        tlb[minNum].valid = 1;
-        tlb[minNum].readOnly = 0;
-        tlb[minNum].use = 1;
-        tlb[minNum].dirty = 0;
-        tlb[minNum].hitTimes = 0;
-        return true;
+        //printf("tlb[%d] is swapped out, new vpn is %d and new physicalPage is %d\n", minNum, vpn, 
+        //    tlb[minNum].physicalPage);
+        tlb[minNum].valid = TRUE;        
+        tlb[minNum].readOnly = FALSE;
+        tlb[minNum].use = FALSE;
+        tlb[minNum].dirty = FALSE;
+        tlb[minNum].hitTimes = 1;
+
+        return TRUE;
 
     }
+    
     else if(choose == 2)
     {
         //srand((unsigned)time(NULL));
@@ -277,12 +290,7 @@ bool Machine::TlbSwap(int virtualAddr, int choose)
         }
             
         ASSERT(toSwap >= 0);
-        if(vpn > (int)pageTableSize || pageTable[vpn].valid == FALSE)
-        {
-            printf("vpn > pageTableSize or pageTable entry is invalid, tlb swap failed\n");
-            return false;
-        }
-
+        ASSERT(vpn < pageTableSize && pageTable[vpn].valid == TRUE);
         tlb[toSwap].virtualPage = vpn;
         tlb[toSwap].physicalPage = pageTable[vpn].physicalPage;
         tlb[toSwap].valid = TRUE;
@@ -297,25 +305,44 @@ bool Machine::TlbSwap(int virtualAddr, int choose)
         tlb[toSwap].order = TLBSize - 1;
         return true;
     }
+    
     ASSERT(FALSE)
 
     //printf("tlb swap returns here\n"); 
 }
 
+
+
+
+
 bool 
 Machine::LoadPage(int virtualAddr)
 {
+    NoffHeader noffH;
+    
     AddrSpace *space = currentThread->space;
+
     //load page from this space
     int vpn = virtualAddr / PageSize;
-    //printf("virtual page %d is loaded from disk\n", vpn);
-    //int offset = virtualAddr % PageSize;
     int startVAddr = vpn * PageSize;
-
-    ASSERT(vpn <= pageTableSize);
+    //printf("pageTableSize is %d, vpn is %d, pageTable[vpn].valid is %d\n",
+    //   pageTableSize, vpn, pageTable[vpn].valid);
+    ASSERT(vpn < pageTableSize);
     ASSERT(!pageTable[vpn].valid);              //assert that this page is invalid
     int minVirPage = -1;
     int minHitTimes = 2147483647;
+
+    //if a physical page is invalid,
+    int pageToBeReplaced = -1;
+    int phyPageNum;
+
+    OpenFile *diskFile = space->swapFile;
+    if(diskFile == NULL)
+        printf("!!!!could not open diskFile!!!!\n");
+
+   
+
+    //in this case, page replacement is not necessary
     for(int i=0; i<pageTableSize; i++)
     {
         if(pageTable[i].valid && pageTable[i].hitTimes < minHitTimes)
@@ -324,45 +351,31 @@ Machine::LoadPage(int virtualAddr)
             minVirPage = i;
         }
     }
+    ASSERT(minVirPage >= 0 && minVirPage < pageTableSize);
+    pageToBeReplaced = minVirPage;
 
-    ASSERT(minVirPage >= 0);
 
+
+    //write back anyway
+    phyPageNum = pageTable[pageToBeReplaced].physicalPage;
+    diskFile->WriteAt(&(mainMemory[phyPageNum * PageSize]), PageSize, 
+        pageTable[pageToBeReplaced].virtualPage * PageSize);   
+    
+
+    pageTable[pageToBeReplaced].valid = FALSE;
     pageTable[vpn].virtualPage = vpn;
-    pageTable[vpn].physicalPage = pageTable[minVirPage].physicalPage;
+    pageTable[vpn].physicalPage = pageTable[pageToBeReplaced].physicalPage;
     pageTable[vpn].valid = TRUE;
     pageTable[vpn].use = FALSE;
     pageTable[vpn].dirty = FALSE;
     pageTable[vpn].readOnly = FALSE;  
-    pageTable[vpn].hitTimes = 0;
-
-    pageTable[minVirPage].valid = FALSE;
-    printf("page Table entry %d is swapped out , and entry %d is swapped in \n",minVirPage, vpn );
+    pageTable[vpn].hitTimes = 1;
+    //printf("page Table entry %d is swapped out , and entry %d is swapped in \n",pageToBeReplaced, vpn );
     
-    OpenFile *diskFile = space->swapFile;
+    phyPageNum = pageTable[vpn].physicalPage;
+    diskFile->ReadAt(&(machine->mainMemory[phyPageNum * PageSize]), PageSize, vpn * PageSize); 
 
-    NoffHeader noffH;
-    unsigned int i, size;
-
-    diskFile->ReadAt((char *)&noffH, sizeof(noffH), 0);
-    ASSERT(noffH.noffMagic == NOFFMAGIC);
-    ASSERT(startVAddr >= noffH.code.virtualAddr);
-    if(startVAddr >=noffH.code.virtualAddr && startVAddr < noffH.uninitData.virtualAddr)
-    {
-        startVAddr += noffH.code.inFileAddr;
-    }
-    // printf("in loadpage, code: size is %d, virtualAddr is %d, inFileAddr is %d\n", 
-    //     noffH.code.size, noffH.code.virtualAddr, noffH.code.inFileAddr);
-    // printf("in loadpage, initData: size is %d, virtualAddr is %d, inFileAddr is %d\n", 
-    //     noffH.initData.size, noffH.initData.virtualAddr, noffH.initData.inFileAddr);
-    // printf("in loadpage, uninitData: size is %d, virtualAddr is %d, inFileAddr is %d\n",
-    //     noffH.uninitData.size, noffH.uninitData.virtualAddr, noffH.uninitData.inFileAddr);
-    
-    int phyPageNum = pageTable[vpn].physicalPage;
-    printf("startVAddr is %d, %d bytes to be written at %d pos in mainMemory\n",
-        startVAddr, PageSize, phyPageNum * PageSize );
-    diskFile->ReadAt(&(machine->mainMemory[phyPageNum * PageSize]), PageSize, startVAddr); 
-
-    space->RestoreState();  
+    //space->RestoreState();  
 }
 
 bool
@@ -371,6 +384,18 @@ Machine::AddPC()
     WriteRegister(PrevPCReg, machine->ReadRegister(PCReg));
     WriteRegister(PCReg, machine->ReadRegister(NextPCReg));
     WriteRegister(NextPCReg, machine->ReadRegister(NextPCReg) + sizeof(int));
+}
+
+void 
+Machine::cleanTlb()
+{
+    for (int i = 0; i < TLBSize; i++)
+    {
+        tlb[i].valid = FALSE;
+        tlb[i].hitTimes = 0;
+        tlb[i].order = i;
+        tlb[i].dirty = FALSE;
+    }
 }
 
 

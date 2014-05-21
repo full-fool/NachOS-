@@ -60,6 +60,7 @@ class FileHeader {
     bool EnlargeFile(BitMap *freeMap, int bytesNeeded);
 
     void Print();			// Print the contents of the file.
+    int getNumBytes(){return numBytes;}
     //int getSector(){return hdrSector;}
     void PrintSectors(){
         for(int i=0; i<30; i++)
