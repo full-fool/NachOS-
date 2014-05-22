@@ -195,7 +195,7 @@ Condition::Broadcast(Lock* conditionLock)
 Barrier::Barrier(char *debugName, int _threadNum)
 {
     name = debugName;
-    threadNum = _threadNum;
+    totalThreadNum = _threadNum;
     waitingNum = 0;
     innerLock = new Semaphore(name, 0);   
 }
@@ -209,7 +209,7 @@ void
 Barrier::Wait()
 {
     IntStatus oldLevel = interrupt->SetLevel(IntOff);   // disable interrupts
-    if(waitingNum == threadNum - 1)
+    if(waitingNum == totalThreadNum - 1)
     {
         while(!innerLock->noWaiting())
         {

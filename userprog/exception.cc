@@ -214,6 +214,9 @@ ExceptionHandler(ExceptionType which)
       space->RestoreState();
       machine->cleanTlb();     //very very important!!!!!!!!!!!!!
       //printf("!!!!!!!!!!!!!!!!!exec here!!!!\n");
+      int retVal = currentThread->getTid();
+      machine->WriteRegister(2, retVal);
+
 
 
       machine->Run();
@@ -223,7 +226,18 @@ ExceptionHandler(ExceptionType which)
 
     else if(which == SyscallException && type == SC_Join)
     {
-      
+      int arg1 = machine->ReadRegister(4);
+      printf("syscall join called, thread %d is joined\n", arg1);
+
+      int retVal;
+      if(tidUse[arg1] == 1)
+        retVal = threads[arg1]->getUid();
+      else
+        retVal = -1;
+      if(retVal > -1)
+        currentThread->Yield();
+      machine->WriteRegister(2, retVal);
+      machine->AddPC();
     }
     else if(which == SyscallException && type == SC_Exit)
     {

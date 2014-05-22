@@ -147,8 +147,8 @@ public:
     void Wait();
 private:
     char *name;
+    int totalThreadNum;
     Semaphore *innerLock;
-    //int threadNum;
     int waitingNum;
 };
 

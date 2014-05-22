@@ -92,7 +92,7 @@ Initialize(int argc, char **argv)
         threads[i] = NULL;
     }
     threadNum = 1;
-    currentUid = 1;
+    currentUid = 0;
 
 
     
@@ -239,6 +239,7 @@ void FreeTid(int _tid)
 
 int getCurrentUid()
 {
+    //currentUid++;
     return currentUid;
 }
 
