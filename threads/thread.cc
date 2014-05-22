@@ -271,6 +271,7 @@ Thread::Sleep ()
     //printf("in thread::sleep call scheduler->run()\n");  
     scheduler->Run(nextThread); // returns when we've been signalled
 }
+#ifdef USER_PROGRAM
 
 void
 Thread::Suspend()
@@ -291,6 +292,7 @@ Thread::Suspend()
 
 
 }
+#endif
 
 int 
 Thread::getUid()

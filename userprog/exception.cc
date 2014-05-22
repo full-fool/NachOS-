@@ -101,6 +101,7 @@ ExceptionHandler(ExceptionType which)
       int baseAddr = machine->ReadRegister(4);
       int readValue;
       int count = 0;
+      int retVal;
       do{
         machine->ReadMem(baseAddr++, 1, &readValue);
         count++;
@@ -113,7 +114,12 @@ ExceptionHandler(ExceptionType which)
         machine->ReadMem(baseAddr + i, 1, &readValue);
         fileName[i] = (char)readValue;
       }
-      int retVal = fileSystem->SysCallOpen(fileName);
+
+#ifdef FILESYS_STUB
+        
+#else 
+      retVal = fileSystem->SysCallOpen(fileName);
+#endif
       printf("in syscall open, fileId returned is %d\n", retVal);
       machine->WriteRegister(2, retVal);
       //printf("!!!!!!!!!!!!!!!1in exception.cc SC_open, %d is written to reg2\n", retVal);
@@ -124,7 +130,13 @@ ExceptionHandler(ExceptionType which)
     {
       printf("syscall close called\n");
       int fileId = machine->ReadRegister(4);
+
+#ifdef FILESYS_STUB
+
+#else
+
       fileSystem->SysCallClose(fileId);
+#endif
       //Close(fileId);
       printf("syscall close return\n");
 
@@ -151,7 +163,12 @@ ExceptionHandler(ExceptionType which)
         machine->ReadMem(baseAddr + i, 1, &readValue);
         content[i] = (char)readValue;
       }
+#ifdef FILESYS_STUB
+ 
+#else
       fileSystem->SysCallWrite(content, size, fileId);
+#endif
+
       machine->AddPC();
     }
     else if(which == SyscallException && type == SC_Read)
@@ -164,7 +181,11 @@ ExceptionHandler(ExceptionType which)
       char *temp = new char[size];
       //OpenFile *openfile = new OpenFile(fileId);
       //count = openfile->Read(temp, size);
+#ifdef FILESYS_STUB
+
+#else
       count = fileSystem->SysCallRead(temp, size, fileId);
+#endif
       for(int i=0; i<size; i++)
       {
         machine->WriteMem(baseAddr+i, 1, temp[i]);
