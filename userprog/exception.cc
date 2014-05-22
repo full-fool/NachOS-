@@ -49,6 +49,8 @@
 //	are in machine.h.
 //----------------------------------------------------------------------
 
+void forkProc(int funcAddr);
+
 void
 ExceptionHandler(ExceptionType which)
 {
@@ -83,21 +85,6 @@ ExceptionHandler(ExceptionType which)
           if (readValue == 0)
               break;
         }
-        /*
-        do{
-          machine->ReadMem(baseAddr++, 1, &readValue);
-          count++;
-        }while(readValue != 0);
-        //printf("filename length is %d\n", count);
-
-        baseAddr -= count;
-        char *fileName = new char[count];
-        for(int i=0; i<count; i++)
-        {
-          machine->ReadMem(baseAddr + i, 1, &readValue);
-          fileName[i] = (char)readValue;
-        }
-        */
         printf("file %s needs to be created\n", fileName);
 #ifdef FILESYS_STUB
         fileSystem->Create(fileName, 128);
@@ -165,11 +152,6 @@ ExceptionHandler(ExceptionType which)
         content[i] = (char)readValue;
       }
       fileSystem->SysCallWrite(content, size, fileId);
-      //printf("after call sysclalwrite\n");
-
-      //OpenFile *openfile = new OpenFile(fileId);
-      //openfile->Write(content, size);
-      //delete openfile;
       machine->AddPC();
     }
     else if(which == SyscallException && type == SC_Read)
@@ -195,6 +177,7 @@ ExceptionHandler(ExceptionType which)
     }
     else if(which == SyscallException && type == SC_Exec)
     {
+      printf("syscall exec called\n");
       int baseAddr = machine->ReadRegister(4);
       int readValue;
       int count = 0;
@@ -222,7 +205,7 @@ ExceptionHandler(ExceptionType which)
         machine->AddPC();
         return;
       }
-      printf("in exec, %s opened successfully\n", fileName);
+      //printf("in exec, %s opened successfully\n", fileName);
       delete fileName;
       space = new AddrSpace(executable);
       currentThread->space = space;
@@ -230,7 +213,7 @@ ExceptionHandler(ExceptionType which)
       space->InitRegisters(); 
       space->RestoreState();
       machine->cleanTlb();     //very very important!!!!!!!!!!!!!
-      printf("!!!!!!!!!!!!!!!!!exec here!!!!\n");
+      //printf("!!!!!!!!!!!!!!!!!exec here!!!!\n");
 
 
       machine->Run();
@@ -244,12 +227,42 @@ ExceptionHandler(ExceptionType which)
     }
     else if(which == SyscallException && type == SC_Exit)
     {
-      printf("the procedure exited\n");
+      int retVal = machine->ReadRegister(4);
+      printf("syscall exit called, the procedure exited with status %d\n", retVal);
       currentThread->Finish();
       machine->AddPC();
     }
 
+    else if(which == SyscallException && type == SC_Fork)
+    {
+      printf("syscall fork called\n");
+      int virtualSpace = machine->ReadRegister(4);
+      //SCFork(arg1);
 
+      AddrSpace * space;
+      Thread * thread;
+      space = new AddrSpace(*currentThread->space);
+      thread = new Thread("forked");
+      thread->space = space;
+      space->SaveState();
+
+      int* currentState = new int[NumTotalRegs];
+      for(int i =0; i < NumTotalRegs;i++)
+          currentState[i] = machine->ReadRegister(i);
+      currentState[PCReg] = virtualSpace;
+      currentState[NextPCReg] = virtualSpace+4;
+
+      thread->Fork(forkProc, (int)currentState);
+
+
+      machine->AddPC();
+    }
+    else if(which == SyscallException && type == SC_Yield)
+    {
+      printf("syscall yield called, the currentThread yield!\n");
+      currentThread->Yield();
+      machine->AddPC();
+    }
     else 
     {
    	    if(which == IllegalInstrException && type == SC_Halt)
@@ -260,4 +273,16 @@ ExceptionHandler(ExceptionType which)
 	       printf("Unexpected user mode exception %d %d\n", which, type);
 	       //ASSERT(FALSE);
     }
+}
+
+void forkProc(int funcAddr) 
+{
+    int* state = (int*)funcAddr;
+    for(int i =0; i < NumTotalRegs;i++)
+         machine->WriteRegister(i,state[i]);
+    delete[] state;
+
+    currentThread->space->RestoreState(); // load page table register
+    machine->Run(); // jump to the user progam
+    ASSERT(FALSE); // machine->Run never returns;
 }
