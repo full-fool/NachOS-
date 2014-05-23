@@ -177,15 +177,24 @@ OpenFile::WriteAt(char *from, int numBytes, int position)
     if ((position + numBytes) > prevSecNum * SectorSize)             //have to enlarge the file
     {        
         printf("the file has to be enlarged in OpenFile::WriteAt\n");
-        int neededBytes = position + numBytes - fileLength;
+        //int neededBytes = position + numBytes - fileLength;
+        int neededBytes = position + numBytes - prevSecNum * SectorSize;
+        ASSERT(neededBytes > 0);
         BitMap *freeMap = new BitMap(NumSectors);
         OpenFile *freeMapFile = new OpenFile(0);                    //open freemap file
         freeMap->FetchFrom(freeMapFile);
-        hdr->EnlargeFile(freeMap, neededBytes);
+        bool success = hdr->EnlargeFile(freeMap, neededBytes);
+        if(!success)
+        {
+            printf("file length enlarge has failed\n");
+            return -1;
+        }
         freeMap->WriteBack(freeMapFile);
+        hdr->WriteBack(hdrSector);
+
 
     }
-    if(position + numBytes > fileLength)
+    else if(position + numBytes > fileLength)
     {
         hdr->ChangeFileLength(position + numBytes);
         hdr->WriteBack(hdrSector);   

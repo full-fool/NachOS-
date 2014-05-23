@@ -217,6 +217,7 @@ FileHeader::Print()
 bool 
 FileHeader::EnlargeFile(BitMap *freeMap, int bytesNeeded)
 {
+    ASSERT(bytesNeeded > 0);
     int newSectors = divRoundUp(bytesNeeded, SectorSize);
     printf("in FileHeader::EnlargeFile, newSectors is %d and numSectors is %d\n",
     newSectors, numSectors);
@@ -241,7 +242,9 @@ FileHeader::EnlargeFile(BitMap *freeMap, int bytesNeeded)
             }
             synchDisk->WriteSector(dataSectors[29], (char *)secondIndex); 
             numSectors += newSectors;
-            numBytes += bytesNeeded;
+            int prevSecNum = divRoundUp(numBytes, SectorSize);
+            //numBytes += bytesNeeded;
+            numBytes = prevSecNum * SectorSize + bytesNeeded;
             printf("in situation 1 and now numSectors is %d, newSectors is %d, numBytes is %d\n", 
                 numSectors, newSectors, numBytes);
         }
@@ -263,7 +266,9 @@ FileHeader::EnlargeFile(BitMap *freeMap, int bytesNeeded)
             }
             synchDisk->WriteSector(secondSector, (char *)secondIndex); 
             numSectors += newSectors;
-            numBytes += bytesNeeded;
+            int prevSecNum = divRoundUp(numBytes, SectorSize);
+            numBytes = prevSecNum * SectorSize + bytesNeeded;
+
             printf("in situation 2 and now numSectors is %d, newSectors is %d, numBytes is %d\n", 
                 numSectors, newSectors, numBytes);
 
@@ -280,13 +285,15 @@ FileHeader::EnlargeFile(BitMap *freeMap, int bytesNeeded)
             printf("in situation 3 new sector found is %d\n", dataSectors[i]);
         }
         numSectors += newSectors;
-        numBytes += bytesNeeded;
+        int prevSecNum = divRoundUp(numBytes, SectorSize);
+        numBytes = prevSecNum * SectorSize + bytesNeeded;
+        //numBytes += bytesNeeded;
         printf("in situation 3 and now numSectors is %d, newSectors is %d, numBytes is %d\n", 
             numSectors, newSectors, numBytes);
 
         return TRUE;
     }
-    return FALSE;
+    ASSERT(FALSE);
 
 
 }

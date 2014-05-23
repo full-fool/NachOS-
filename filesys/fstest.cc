@@ -213,13 +213,13 @@ void testFunction()
     fileSystem->getCurrentPath();
     
     if (!fileSystem->Create("testDirectory", 0, 'd')) {
-      printf("Perf test: can't create directory");
+      printf("Perf test: can't create directory\n");
       //return;
     }
     //fileSystem->Print();
     
     if (!fileSystem->Create("fileUnderDirectory", 0, 'f', "/testDirectory/")) {
-      printf("Perf test: can't create directory file");
+      printf("Perf test: can't create directory file\n");
       //return;
     }
     //fileSystem->Print();
@@ -258,8 +258,8 @@ PerformanceTest()
 {
     //printf("Starting file system performance test:\n");
     //stats->Print();
-    //FileWrite();
-    testFunction();
+    FileWrite();
+    //testFunction();
     /*
     FileRead();
     fileSystem->Print();
