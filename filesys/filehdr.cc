@@ -220,10 +220,7 @@ FileHeader::EnlargeFile(BitMap *freeMap, int bytesNeeded)
     int newSectors = divRoundUp(bytesNeeded, SectorSize);
     printf("in FileHeader::EnlargeFile, newSectors is %d and numSectors is %d\n",
     newSectors, numSectors);
-    //printf("the sector num is %d and situation is \n", getSector());
-    //for(int i=0; i<30; i++)
-    //   printf("%d\n", dataSectors[i]);
-    //printf("the dataSectors[29] is %d\n", dataSectors[29]);
+   
     if(freeMap->NumClear() < newSectors)
         return FALSE;
     if(newSectors + numSectors >29+32)

@@ -16,6 +16,8 @@
 #include "stats.h"
 #include "timer.h"
 #define MAX_THREAD_NUM 128
+#define MAX_MESSAGE_QUEUE 10
+#define MAX_MESSAGES_PER_QUEUE 10
 // Initialization and cleanup routines
 extern void Initialize(int argc, char **argv); 	// Initialization,
 						// called before anything else
@@ -36,6 +38,8 @@ extern void FreeTid(int _tid);
 extern int currentUid;
 extern int getCurrentUid();
 extern Thread *threads[MAX_THREAD_NUM];
+extern List *msgQueue[MAX_MESSAGE_QUEUE];
+
 
 #ifdef USER_PROGRAM
 #include "machine.h"

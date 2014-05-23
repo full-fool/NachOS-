@@ -22,6 +22,7 @@ int threadNum;
 int tidUse[MAX_THREAD_NUM];
 int currentUid;
 Thread *threads[MAX_THREAD_NUM];
+List *msgQueue[MAX_MESSAGE_QUEUE];
 
 #ifdef FILESYS_NEEDED
 FileSystem  *fileSystem;

@@ -126,10 +126,7 @@ int
 OpenFile::ReadAt(char *into, int numBytes, int position)
 {
     int fileLength = hdr->FileLength();
-    //printf("call readat here in .cc\n");
 
-    //printf("in OpenFile::ReadAt, the fileLength is %d and hdrSector is %d\n", fileLength, hdrSector);
-    //hdr->PrintSectors();
     int i, firstSector, lastSector, numSectors;
     char *buf;
 
@@ -170,8 +167,6 @@ OpenFile::WriteAt(char *from, int numBytes, int position)
     //fileSystem->List();
     int fileLength = hdr->FileLength();
     int prevSecNum = divRoundUp(fileLength, SectorSize);
-    //printf("char is %s and fileLength is %d bytes and numBytes is %d, position is %d!!!!!\n", 
-    //    from, fileLength, numBytes, position);
 
     int i, firstSector, lastSector, numSectors;
     bool firstAligned, lastAligned;
@@ -182,7 +177,6 @@ OpenFile::WriteAt(char *from, int numBytes, int position)
     if ((position + numBytes) > prevSecNum * SectorSize)             //have to enlarge the file
     {        
         printf("the file has to be enlarged in OpenFile::WriteAt\n");
-        //hdr->ChangeFileLength(position + numBytes);
         int neededBytes = position + numBytes - fileLength;
         BitMap *freeMap = new BitMap(NumSectors);
         OpenFile *freeMapFile = new OpenFile(0);                    //open freemap file

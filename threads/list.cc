@@ -76,15 +76,22 @@ List::~List()
 void
 List::Append(void *item)
 {
+    //printf("began to append %s to list\n", (char *)item);
     ListElement *element = new ListElement(item, 0);
 
-    if (IsEmpty()) {		// list is empty
-	first = element;
-	last = element;
-    } else {			// else put it after last
-	last->next = element;
-	last = element;
+    if (IsEmpty()) 
+    {		// list is empty
+        //printf("the list is empty\n");
+	   first = element;
+	   last = element;
+    } 
+    else 
+    {			// else put it after last
+        //printf("the list is not empty\n");
+	   last->next = element;
+	   last = element;
     }
+    //printf("list append suc return\n");
 }
 
 //----------------------------------------------------------------------
@@ -155,9 +162,16 @@ bool
 List::IsEmpty() 
 { 
     if (first == NULL)
+    {
+        //printf("first is null\n");
         return TRUE;
+
+    }
     else
-	return FALSE; 
+    {
+        //printf("first is not null\n");
+        return FALSE; 
+    }
 }
 
 //----------------------------------------------------------------------

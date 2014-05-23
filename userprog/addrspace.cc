@@ -109,7 +109,6 @@ AddrSpace::AddrSpace(OpenFile *executable)
             pageTable[i].dirty = FALSE;
             pageTable[i].readOnly = FALSE; 
             pageTable[i].hitTimes = 0;
-            //printf("pageTable[%d] is valid, physicalPage num is %d\n", i, pageTable[i].physicalPage);
 
         }
         if (noffH.code.size > 0) 
@@ -153,15 +152,11 @@ AddrSpace::AddrSpace(OpenFile *executable)
             {
                 pageTable[i].physicalPage = memoryBitmap->Find();
                 pageTable[i].valid = TRUE;
-                //printf("in AddrSpace, allocated pageTable[%d].physicalPage is %d, valid\n", 
-                //   i, pageTable[i].physicalPage);
             }
             else
             {
                 pageTable[i].physicalPage = -1;
                 pageTable[i].valid = FALSE;
-                //printf("in AddrSpace, allocated pageTable[%d].physicalPage is -1, not valid\n", 
-                //    i);
             }
             pageTable[i].use = FALSE;
             pageTable[i].dirty = FALSE;
@@ -203,7 +198,6 @@ AddrSpace::AddrSpace(OpenFile *executable)
                     offSet = (noffH.code.virtualAddr + i) % PageSize;
                     if(pageTable[virPageNum].valid)
                     {
-                        //printf("pageTable[%d] is valid, so code write in\n", virPageNum);
                         phyPageNum = pageTable[virPageNum].physicalPage;
                         executable->ReadAt(&(machine->mainMemory[phyPageNum * PageSize + offSet]), 
                             1, intraFileAddr);

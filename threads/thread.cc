@@ -221,7 +221,7 @@ Thread::Yield ()
             scheduler->ReadyToRun(this);
             //printf("%s is in ready list now\n", this->getName());
             
-            printf("in thread::yield call scheduler->run()\n");
+            //printf("in thread::yield call scheduler->run()\n");
             scheduler->Run(nextThread);
             //printf("%s is in running now\n", nextThread->getName());
             //printf("%s yield to %s\n",this->getName(), nextThread->getName() );
@@ -268,7 +268,6 @@ Thread::Sleep ()
     status = BLOCKED;
     while ((nextThread = scheduler->FindNextToRun()) == NULL)
 	interrupt->Idle();	// no one to run, wait for an interrupt
-    //printf("in thread::sleep call scheduler->run()\n");  
     scheduler->Run(nextThread); // returns when we've been signalled
 }
 #ifdef USER_PROGRAM
@@ -318,6 +317,46 @@ Thread::setPriority(int _priority)
         priority = HIGHEST_PRIORITY;
 
     
+}
+
+
+ //List *msgQueue[MAX_MESSAGE_QUEUE];
+bool 
+Thread::sendMsg(int qid, char *content, int length)
+{
+    if(qid >= MAX_MESSAGE_QUEUE || qid < 0)
+    {
+        printf("in sendMsg, qid is wrong\n");
+        return FALSE;
+    }
+    //printf("in therad::sendMsg, qid is %d\n", qid);
+    msgQueue[qid]->Append((void *)content);    // Put item at the end of the list
+    //printf("in therad::sendMsg return here");
+
+    return TRUE;
+
+
+
+}
+
+bool 
+Thread::receiveMsg(int qid, char *to, int length)
+{
+    if(qid >= MAX_MESSAGE_QUEUE || qid < 0)
+    {
+        printf("in sendMsg, qid is wrong\n");
+        return FALSE;
+    }
+    if(msgQueue[qid]->IsEmpty())
+    {
+        printf("in sendMsg, queue is empty\n");
+        return FALSE;
+    }
+    //printf("before receive\n");
+    //to = (char *)msgQueue[qid]->Remove();
+    bcopy((char *)msgQueue[qid]->Remove(), to, length);
+    //printf("in receiveMsg, to is \"%s\"\n", to);
+    return TRUE;
 }
 
 
@@ -422,6 +461,5 @@ Thread::RestoreUserState()
 {
     for (int i = 0; i < NumTotalRegs; i++)
 	   machine->WriteRegister(i, userRegisters[i]);
-    //printf("%s's user state restored!!!!!!!!!!!!!!!!!!!!!\n", currentThread->getName());
 }
 #endif

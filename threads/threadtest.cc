@@ -21,12 +21,15 @@ int testnum = 1;
 int buffer[20];
 Semaphore *full = new Semaphore("full", 0);
 Semaphore *empty = new Semaphore("empty", MAX_BUFFER);
+Semaphore *testSem1 = new Semaphore("testSem1", 1);
+Semaphore *testSem2 = new Semaphore("testSem2", 1);
 Lock *mutex = new Lock("mutex");
 Condition *condp = new Condition("condp");
 Condition *condc = new Condition("condc");
 Barrier *barrierTest = new Barrier("barrier", 3);
 int change = 0;
 RWLock *rwlock = new RWLock("rwlock");
+int source[4];
 //----------------------------------------------------------------------
 // SimpleThread
 // 	Loop 5 times, yielding the CPU to another ready thread 
@@ -290,6 +293,158 @@ rwlockTest()
 
 }
 
+// Thread::sendMsg(int qid, char *content, int length);
+// Thread::receiveMsg(int qid, char *to, int length);
+
+
+void 
+SendAndReceive(int arg)
+{
+    if(arg == 1)
+    {
+        printf("msgThread1 send messages for thread 2 and 3\n");
+        char *msg1 = "this is message 1 for thread2";
+        char *msg2 = "this is message 2 for thread3";
+        currentThread->sendMsg(2, msg1, 30);
+        currentThread->sendMsg(4, msg2, 30);
+    }
+    
+    else if(arg == 2)
+    {
+        char *receivedmsg1 = new char[30];
+        currentThread->receiveMsg(2, receivedmsg1, 30);
+        printf("msgThread2 receive message, content is \"%s\"\n", receivedmsg1);
+    }
+    else if(arg == 3)
+    {
+        char *received2 = new char [30];
+        currentThread->receiveMsg(4, received2, 30);
+        printf("msgThread3 receive message, content is \"%s\"\n", received2);
+    }
+    
+}
+
+void 
+testMessage()
+{
+    Thread *msgThread1 = new Thread("msgThread1");
+    Thread *msgThread2 = new Thread("msgThread2");
+    Thread *msgThread3 = new Thread("msgThread3");
+    msgThread1->Fork(SendAndReceive, 1);
+    msgThread2->Fork(SendAndReceive, 2);
+    msgThread3->Fork(SendAndReceive, 3);
+}
+
+
+void
+deadLock1(int arg)
+{
+    testSem1->P();
+    printf("thread1 get the source 1\n");
+    currentThread->Yield();
+    testSem2->P();
+    printf("thread1 get the source 2\n");
+    testSem2->V();
+    printf("thread1 release source 2\n");
+    testSem1->V();
+    printf("thread1 release source 1\n");
+
+}
+
+void 
+deadLock2(int arg)
+{
+    testSem2->P();
+    printf("thread2 get the source 2\n");
+    testSem1->P();
+    printf("thread2 get the source 1\n");
+
+    testSem1->V();
+    printf("thread2 release the source 1\n");
+
+    testSem2->V();
+    printf("thread2 release the source 2\n");
+
+}
+
+void 
+testDeadLock()
+{
+    Thread *Thread1 = new Thread("Thread1");
+    Thread *Thread2 = new Thread("Thread2");
+    Thread1->Fork(deadLock1, 1);
+    Thread2->Fork(deadLock2, 2);
+
+
+}
+
+
+//the sequence of source access is determined by their id
+void 
+AcquireSource(int arg)
+{
+    if(arg == 0)
+    {
+        mutex->Acquire();
+        source[0] = 1;
+        printf("after access to source 0, the situation of the sources are listed as follows\n");
+        for(int i=0; i<4; i++)
+            printf("source[%d] is %d\n", i, source[i]);
+        mutex->Release();
+    }
+    else if(arg == 1)
+    {
+        while(source[0] != 1)
+            currentThread->Yield();
+        mutex->Acquire();
+        source[1] = 1;
+        printf("after access to source 1, the situation of the sources are listed as follows\n");
+        for(int i=0; i<4; i++)
+            printf("source[%d] is %d\n", i, source[i]);
+        mutex->Release();
+    }
+    else if(arg == 2)
+    {
+        while(source[0] != 1 || source[1] != 1)
+            currentThread->Yield();
+        mutex->Acquire();
+        source[2] = 1;
+        printf("after access to source 2, the situation of the sources are listed as follows\n");
+        for(int i=0; i<4; i++)
+            printf("source[%d] is %d\n", i, source[i]);
+        mutex->Release();
+    }
+    else
+    {
+        while(source[0] != 1 || source[1] != 1 || source[2] != 1)
+            currentThread->Yield();
+        mutex->Acquire();
+        source[3] = 1;
+        printf("after access to source 3, the situation of the sources are listed as follows\n");
+        for(int i=0; i<4; i++)
+            printf("source[%d] is %d\n", i, source[i]);
+        mutex->Release();
+    }
+}
+
+void 
+preventDeadlock()
+{
+    for(int i=0; i<4; i++)
+        source[i] = 0;
+
+    //although the sequence of fork is 4\3\2\1, the sequence of source access maintain 0\1\2\3.
+    //which indicates that the algorithm really works
+    Thread *Thread1 = new Thread("Thread1");
+    Thread *Thread2 = new Thread("Thread2");
+    Thread *Thread3 = new Thread("Thread3");
+    Thread *Thread4 = new Thread("Thread4");
+    Thread4->Fork(AcquireSource, 3);
+    Thread3->Fork(AcquireSource, 2);
+    Thread2->Fork(AcquireSource, 1);
+    Thread1->Fork(AcquireSource, 0);
+}
+
 //----------------------------------------------------------------------
 // ThreadTest
 // 	Invoke a test routine.
@@ -298,27 +453,34 @@ rwlockTest()
 void
 ThreadTest(int n)
 {
-    //printf("ThreadTest started!\n");
     switch (testnum) {
     case 1:
 	   ThreadTest1(n);
 	   break;
     case 2:
-        ProCom1();
+        ProCom1();          //producer-consumer model with semaphore
         break;
     case 3:
-        Procom2();
+        Procom2();          //producer-consumer model with condition variable
         break;
     case 4:
-        testBarrier();
+        testBarrier();      //test of barrier
         break;
     case 5:
-        rwlockTest();
+        rwlockTest();       //test of read-write lock
+        break;
+    case 6:
+        testMessage();      //test of message queue
+        break;
+    case 7:
+        testDeadLock();     //test of the occurence of deadlock
+        break;
+    case 8:
+        preventDeadlock();  //test of deadlock-preventing algorithm
         break;
     default:
 	   printf("No test specified.\n");
 	   break;
     }
-    //printf("ThreadTest ended!\n");
 }
 

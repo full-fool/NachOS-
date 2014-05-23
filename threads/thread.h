@@ -114,6 +114,8 @@ class Thread {
     int getPriority();
     void setPriority(int _priority);
     void Suspend();
+    bool sendMsg(int qid, char *content, int length);
+    bool receiveMsg(int qid, char *to, int length);
 
   private:
     // some of the private data for this class is listed above

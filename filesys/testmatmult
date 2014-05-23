@@ -1,0 +1,4 @@
+make
+./nachos -f
+./nachos -cp matmult matmult
+./nachos -x matmult

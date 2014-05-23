@@ -89,6 +89,10 @@ main(int argc, char **argv)
     
 #ifdef THREADS
     int n = 0;
+    //List *msgQueue[MAX_MESSAGE_QUEUE];
+
+    for(int i=0; i<MAX_MESSAGE_QUEUE; i++)
+      msgQueue[i] = new List();
     for (argc--, argv++; argc > 0; argc -= argCount, argv += argCount) {
       argCount = 1;
       
