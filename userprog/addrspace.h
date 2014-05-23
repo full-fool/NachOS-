@@ -41,7 +41,7 @@ class AddrSpace {
 					// for now!
     unsigned int numPages;		// Number of pages in the virtual 
 					// address space
-    char userFileName[128];
+    //char userFileName[128];
 };
 
 #endif // ADDRSPACE_H

@@ -166,18 +166,29 @@ AddrSpace::AddrSpace(OpenFile *executable)
         }
 
         char *fileName = currentThread->getName();
+        int anum = numPages % 11;
+        char singleChar = 'a' + numPages % 26;
+        char *prefix = new char[anum + 100]; 
+        for(i=0; i<anum; i++)
+            prefix[i] = singleChar; 
+        prefix[anum] = '\0';   
+        strcat(prefix, fileName);
+
+        //itoa(exeHdrSector, HdrSectorChar, 10);
         bool createSuccess = FALSE;
     #ifdef FILESYS_STUB 
-        createSuccess = fileSystem->Create(fileName, size);
-        swapFile = fileSystem->Open(fileName);
+
+        createSuccess = fileSystem->Create(prefix, size);
+
+        swapFile = fileSystem->Open(prefix);
     #else
-        createSuccess = fileSystem->Create(fileName, size, 'f', "/");
-        swapFile = fileSystem->Open("/", fileName);
+        createSuccess = fileSystem->Create(prefix, size, 'f', "/");
+        swapFile = fileSystem->Open("/", prefix);
     #endif
        
         if(swapFile == NULL)
         {
-            printf("unable to open %s swap zone\n", fileName);
+            printf("unable to open %s swap zone\n", prefix);
             interrupt->Halt();
             return;
         }
