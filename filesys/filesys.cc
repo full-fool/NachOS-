@@ -50,6 +50,7 @@
 #include "directory.h"
 #include "filehdr.h"
 #include "filesys.h"
+#include "system.h"
 
 // Sectors containing the file headers for the bitmap of free sectors,
 // and the directory of files.  These file headers are placed in well-known 
@@ -268,24 +269,38 @@ OpenFile *
 FileSystem::Open(char *targetPath, char *name)
 { 
     Directory *directory = new Directory(NumDirEntries);
+
     OpenFile *openFile = NULL;
     int sector;
 
     DEBUG('f', "Opening file %s\n", name);
+
     directory->FetchFrom(directoryFile);
+    printf("in FileSystem::Open, try to open %s\n", name);
+
     //directory->PrintTableEntry();
 
     sector = directory->Find(targetPath, name); 
-
     if (sector >= 0) 
     {
         directory->updateVisitedTime(targetPath, name);
         directory->updateModified(targetPath, name);
+        directory->AddOpenThreads(targetPath, name);
+        printf("in FileSystem::open, before write back, the fileopenthreads is %d\n", 
+            directory->getFileThreads(targetPath, name));
         directory->WriteBack(directoryFile);
         openFile = new OpenFile(sector);    // name was found in directory 
         directory->addThread(targetPath, name);
         printf("in FileSystem::open, hdr sector found and number is %d\n", sector);
         delete directory;
+        
+        // directory = new Directory(NumDirEntries);
+        // directory->FetchFrom(directoryFile);
+        // printf("in FileSystem::open, after write back, the fileopenthreads is %d\n", 
+        //     directory->getFileThreads(targetPath, name));
+        // delete directory;
+
+
 
     }
     else
@@ -296,6 +311,19 @@ FileSystem::Open(char *targetPath, char *name)
     }		
     return openFile;				// return NULL if not found
 }
+
+void 
+FileSystem::Close(char *targetPath, char *name)
+{
+    Directory *directory = new Directory(NumDirEntries);
+    directory->FetchFrom(directoryFile);
+    directory->SubFileThreads(targetPath, name);
+    directory->WriteBack(directoryFile);
+
+
+}
+
+
 
 OpenFile * 
 FileSystem::Open(char *name)
@@ -328,6 +356,18 @@ FileSystem::Remove(char *targetPath, char *name)
     
     directory = new Directory(NumDirEntries);
     directory->FetchFrom(directoryFile);
+    int fileThreadsNum = directory->getFileThreads(targetPath, name);
+    while(fileThreadsNum != 0)
+    {
+        printf("cannot remove %s now, since %d threads still hold the file\n", name, fileThreadsNum);
+        
+        delete directory;
+        currentThread->Yield();
+        directory = new Directory(NumDirEntries);
+        directory->FetchFrom(directoryFile);
+        fileThreadsNum = directory->getFileThreads(targetPath, name);
+    }
+   
     sector = directory->Find(targetPath, name);
     if (sector == -1) {
        delete directory;
@@ -347,6 +387,7 @@ FileSystem::Remove(char *targetPath, char *name)
 
     freeMap->WriteBack(freeMapFile);		// flush to disk
     directory->WriteBack(directoryFile);        // flush to disk
+    printf("in FileSystem::remove, successfully remove file %s\n", name);
     delete fileHdr;
     delete directory;
     delete freeMap;
@@ -504,6 +545,30 @@ FileSystem::SysCallRead(char *buffer, int Bytes, int id)
     numBytes = OpenFileQueue[id]->Read(buffer, Bytes);
     return numBytes;
 }
+
+
+int 
+FileSystem::getFileThreadsNum(char *targetPath, char *name)
+{
+    Directory *directory = new Directory(NumDirEntries);
+    directory->FetchFrom(directoryFile);
+    int returnNum = directory->getFileThreads(targetPath, name);
+    delete directory;
+    return returnNum;
+    
+}
+
+
+void 
+FileSystem::cleanFileThreadsNum()
+{
+    Directory *directory = new Directory(NumDirEntries);
+    directory->FetchFrom(directoryFile);
+    directory->cleanThreadsNum();
+    directory->WriteBack(directoryFile);
+    delete directory;
+}
+
 
 
 

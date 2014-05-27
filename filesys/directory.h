@@ -20,6 +20,8 @@
 #include "openfile.h"
 
 #define FileNameMaxLen 		127	// for simplicity, we assume 
+#define NumDirEntries        10
+
 					// file names are <= 9 characters long
 
 // The following class defines a "directory entry", representing a file
@@ -93,6 +95,12 @@ class Directory {
     void updateModified(char *targetPath, char *name);
     bool existDirectory(char *fullPath);
     int getTableSize(){return tableSize;}
+    void  AddOpenThreads(char *targetPath, char *name);
+    void SubFileThreads(char *targetPath, char *name);
+    int getFileThreads(char *targetPath, char *name);
+    void cleanThreadsNum();
+
+
     //bool changeDirectory(char *newPath);
 
   private:
@@ -100,6 +108,7 @@ class Directory {
     DirectoryEntry *table;		// Table of pairs: 
 					// <file name, file header location> 
     //char *currentPath;
+    int *FileOpenThreads;
 
     int FindIndex(char *targetPath, char *name);		// Find the index into the directory 
 					//  table corresponding to "name"

@@ -126,6 +126,8 @@ void PrintDirectory()
 #define ContentSize 	strlen(Contents)
 #define FileSize 	((int)(ContentSize * 500))
 
+RWLock *Rwlock = new RWLock("rwlock");
+
 static void 
 FileWrite()
 {
@@ -246,19 +248,98 @@ void testFunction()
            return;
        }
     }
-    //fileSystem->Print();
 
-    //fileSystem->Remove("/testDirectory/", "fileUnderDirectory");
-    //fileSystem->Print();
-    //printf("write succeeded!!!!!!\n");
     delete openFile;    
 }
+
+
+
+
+
+void 
+fileThread(int arg)
+{
+    if(arg == 1)
+    {
+        OpenFile *openFile;    
+        int i, numBytes;
+        char *buffer = new char[5];
+        printf("thread 1 is running\n");
+        openFile = fileSystem->Open("exclusiveFile");
+        printf("thread 1 successfully open file\n");
+        Rwlock->AcquireRLock();
+        numBytes = openFile->Read(buffer, 4);
+        buffer[4] = '\0';
+        int filethreadsnum = fileSystem->getFileThreadsNum("/", "exclusiveFile");
+        //printf("the filethreadsnum is %d\n", filethreadsnum);
+        Rwlock->ReleaseLock();
+        //fileSystem->Remove("/", "exclusiveFile");
+        printf("thread 1 read content \"%s\"\n", buffer);
+        currentThread->Yield();
+        fileSystem->Close("/", "exclusiveFile");
+
+    }
+    
+    else if(arg == 2)
+    {
+        OpenFile *openFile;    
+        int i, numBytes;
+        char *buffer = new char[6];
+        printf("thread 2 is running\n");
+        openFile = fileSystem->Open("exclusiveFile");
+        Rwlock->AcquireRLock();
+        numBytes = openFile->Read(buffer, 5);
+        buffer[5] = '\0';
+        Rwlock->ReleaseLock();
+        printf("thread 2 read content \"%s\"\n", buffer);
+        fileSystem->Close("/", "exclusiveFile");
+
+    }
+    else if(arg == 3)
+    {
+        fileSystem->Remove("/", "exclusiveFile");
+    }
+    
+
+}
+
+void FileExclusive()
+{
+    bool success = fileSystem->Create("exclusiveFile", 128, 'f', "/");
+    if(!success)
+    {
+        printf("the file exclusiveFile already exist\n");
+        fileSystem->Remove("/", "exclusiveFile");
+        success = fileSystem->Create("exclusiveFile", 128, 'f', "/");
+    }
+    if(!success)
+    {
+        printf("cannot create file exclusiveFile\n");
+        return;
+    }
+    OpenFile *openFile = fileSystem->Open("exclusiveFile");
+    int numBytes = openFile->Write("9876543210", 10);
+    if(numBytes < 10)
+        printf("Perf test: unable to write exclusiveFile\n");
+    fileSystem->Close("/", "exclusiveFile");
+    Thread *Thread1 = new Thread("Thread1");
+    Thread *Thread2 = new Thread("Thread2");
+    //Thread *Thread3 = new Thread("Thread3");
+    Thread1->Fork(fileThread, 1);
+    Thread2->Fork(fileThread, 2);
+    //Thread3->Fork(fileThread, 3);
+
+
+}
+
+
 void
 PerformanceTest()
 {
     //printf("Starting file system performance test:\n");
     //stats->Print();
-    FileWrite();
+    //FileWrite();
+    FileExclusive();
     //testFunction();
     /*
     FileRead();

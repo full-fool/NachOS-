@@ -179,13 +179,23 @@ AddrSpace::AddrSpace(OpenFile *executable)
     #ifdef FILESYS_STUB 
 
         createSuccess = fileSystem->Create(prefix, size);
-
         swapFile = fileSystem->Open(prefix);
+        if(createSuccess == FALSE)
+        {
+            fileSystem->Remove(prefix);
+            createSuccess = fileSystem->Create(prefix, size);
+            swapFile = fileSystem->Open(prefix);
+        }
     #else
         createSuccess = fileSystem->Create(prefix, size, 'f', "/");
         swapFile = fileSystem->Open("/", prefix);
+        if(createSuccess == FALSE)
+        {
+            fileSystem->Remove("/", prefix);
+            createSuccess = fileSystem->Create(prefix, size, 'f', "/");
+            swapFile = fileSystem->Open("/", prefix);
+        }
     #endif
-       
         if(swapFile == NULL)
         {
             printf("unable to open %s swap zone\n", prefix);

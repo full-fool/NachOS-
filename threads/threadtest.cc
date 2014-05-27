@@ -12,6 +12,7 @@
 #include "copyright.h"
 #include "system.h"
 #include "synch.h"
+#include "../filesys/openfile.h"
 
 // testnum is set in main.cc
 int testnum = 1;
@@ -444,6 +445,59 @@ preventDeadlock()
     Thread2->Fork(AcquireSource, 1);
     Thread1->Fork(AcquireSource, 0);
 }
+
+/*
+void 
+fileThread(int arg)
+{
+    if(arg == 1)
+    {
+        OpenFile *openFile;    
+        int i, numBytes;
+        char *buffer = new char[4];
+
+        openFile = fileSystem->Open("exclusiveFile");
+        rwlock->AcquireRLock()
+        numBytes = openFile->Read(buffer, 4);
+        rwlock->ReleaseLock();
+        printf("thread 1 read content \"%s\"\n", buffer);
+        fileSystem->Close("/", "exclusiveFile");
+
+    }
+    else if(arg == 2)
+    {
+        OpenFile *openFile;    
+        int i, numBytes;
+        char *buffer = new char[5];
+
+        openFile = fileSystem->Open("exclusiveFile");
+        rwlock->AcquireRLock();
+        numBytes = openFile->Read(buffer, 5);
+        rwlock->ReleaseLock();
+        printf("thread 1 read content \"%s\"\n", buffer);
+        fileSystem->Close("/", "exclusiveFile");
+
+    }
+
+}
+
+void FileExclusive()
+{
+    fileSystem->Create("exclusiveFile", 128, 'f', "/");
+    OpenFile *openFile = fileSystem->Open("exclusiveFile");
+    int numBytes = openFile->Write("9876543210", 10);
+    if(numBytes < 10)
+        printf("Perf test: unable to write exclusiveFile\n");
+
+    Thread *Thread1 = new Thread("Thread1");
+    Thread *Thread2 = new Thread("Thread2");
+    Thread1->Fork(fileThread, 1);
+    Thread2->Fork(fileThread, 2);
+
+
+}
+*/
+
 
 //----------------------------------------------------------------------
 // ThreadTest

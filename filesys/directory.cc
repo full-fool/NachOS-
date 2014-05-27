@@ -44,6 +44,11 @@ Directory::Directory(int size)
     //currentPath = "/";
     for (int i = 0; i < tableSize; i++)
 	table[i].inUse = FALSE;
+
+    FileOpenThreads = new int[tableSize];
+
+    for (int i=0; i<tableSize; i++)
+        FileOpenThreads[i] = 0;
 }
 
 //----------------------------------------------------------------------
@@ -67,6 +72,9 @@ void
 Directory::FetchFrom(OpenFile *file)
 {
     (void) file->ReadAt((char *)table, tableSize * sizeof(DirectoryEntry), 0);
+    (void) file->ReadAt((char *)FileOpenThreads, tableSize * sizeof(int),  tableSize * sizeof(DirectoryEntry));
+        //int *FileOpenThreads;
+
 }
 
 //----------------------------------------------------------------------
@@ -80,6 +88,7 @@ void
 Directory::WriteBack(OpenFile *file)
 {
     (void) file->WriteAt((char *)table, tableSize * sizeof(DirectoryEntry), 0);
+    (void) file->WriteAt((char *)FileOpenThreads, tableSize * sizeof(int),  tableSize * sizeof(DirectoryEntry));
 }
 
 //----------------------------------------------------------------------
@@ -371,37 +380,66 @@ Directory::existDirectory(char *fullPath)
 }
 
 
-/*
-bool 
-Directory::changeDirectory(char *newPath)
+void  
+Directory::AddOpenThreads(char *targetPath, char *name)
 {
-    if(!strcmp("/", newPath))
-    {
-        currentPath = "/";
-        return TRUE;
-    }
-    char *fullPath = new char[100];
     for(int i=0; i<tableSize; i++)
     {
-        if(table[i].inUse && table[i].type == 'd')
+        if(!strcmp(table[i].path, targetPath) && !strcmp(table[i].name, name))
         {
-            memset(fullPath, 0, sizeof fullPath);
-            strcat(fullPath, table[i].path);
-            strcat(fullPath, "/");
-            strcat(fullPath, table[i].name);
-            if(!strcmp(fullPath, newPath))
-            {
-                currentPath = newPath;
-                delete fullPath;
-                return TRUE;
-            }
+            ASSERT(table[i].inUse);
+            FileOpenThreads[i]++;
+            //printf("FileOpenThreads[%d] is %d\n", i, FileOpenThreads[i]);
+            ASSERT(FileOpenThreads[i] >= 0);
+            break;
         }
     }
-    printf("no such directory!\n");
-    delete fullPath;
-    return FALSE;
+    
 }
 
-*/
+void 
+Directory::SubFileThreads(char *targetPath, char *name)
+{
+    for(int i=0; i<tableSize; i++)
+    {
+        if(!strcmp(table[i].path, targetPath) && !strcmp(table[i].name, name))
+        {
+            ASSERT(table[i].inUse);
+            FileOpenThreads[i]--;
+            //printf("FileOpenThreads[%d] is %d now\n", i, FileOpenThreads[i]);
+            ASSERT(FileOpenThreads[i] >= 0);
+            break;
+        }
+    }
+}
+
+int 
+Directory::getFileThreads(char *targetPath, char *name)
+{
+    for(int i=0; i<tableSize; i++)
+    {
+        if(!strcmp(table[i].path, targetPath) && !strcmp(table[i].name, name))
+        {
+            ASSERT(table[i].inUse);
+            ASSERT(FileOpenThreads[i] >= 0);
+            printf("in directory::getFileThreads, FileOpenThreads[%d] is %d\n", i, FileOpenThreads[i]);
+            return FileOpenThreads[i];
+        }
+    }
+    ASSERT(FALSE);
+}
+
+
+void 
+Directory::cleanThreadsNum()
+{
+    for(int i=0; i<tableSize; i++)
+    {
+        FileOpenThreads[i] = 0;
+    }
+}
+
+
+
 
 

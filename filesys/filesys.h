@@ -104,10 +104,17 @@ class FileSystem {
     int SysCallOpen(char *name);
     
     void SysCallClose(int id);
+
+    void Close(char *targetPath, char *name);
     
     void SysCallWrite(char *buffer, int Bytes, int id);
     
     int SysCallRead(char *buffer, int Bytes, int id);
+    
+    int getFileThreadsNum(char *targetPath, char *name);
+
+    void cleanFileThreadsNum();
+
 
   private:
    OpenFile* freeMapFile;		// Bit map of free disk blocks,
