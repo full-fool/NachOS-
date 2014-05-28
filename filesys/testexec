@@ -1,5 +1,0 @@
-make
-./nachos -f
-./nachos -cp halt halt
-./nachos -cp mytest mytest
-./nachos -x mytest
