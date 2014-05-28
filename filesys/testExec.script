@@ -1,0 +1,5 @@
+make
+./nachos -f
+./nachos -cp halt halt
+./nachos -cp execTest execTest
+./nachos -x execTest

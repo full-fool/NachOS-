@@ -1,0 +1,4 @@
+make
+./nachos -f
+./nachos -cp ForkAndJoin ForkAndJoin
+./nachos -x ForkAndJoin

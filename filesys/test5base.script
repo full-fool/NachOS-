@@ -1,0 +1,4 @@
+make
+./nachos -f
+./nachos -cp 5base 5base
+./nachos -x 5base

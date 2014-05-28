@@ -69,8 +69,8 @@ StartProcess(char *filename)
     thread2->initUserRegisters();
     thread2->Fork(changeThread, 0);
     delete executable2;
-
     */
+    
     machine->Run();			// jump to the user progam
     //interrupt->Halt();
     ASSERT(FALSE);			// machine->Run never returns;
